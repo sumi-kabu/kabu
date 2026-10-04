@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="株トレ練習">
 <title>株トレード練習ツール（PC・スマホ共通版）</title>
@@ -973,69 +974,275 @@ overlay.addEventListener('touchend', function(e) {
 overlay.addEventListener('touchcancel', () => { hlineDragIdx = null; hideHlineGuide(); });
 }
 
-async function fetchData() {
-  var ticker = document.getElementById('ticker-input').value.trim();
-  var status = document.getElementById('status-display');
-  if (!ticker) return;
+// ===== 株価の取得（新GAS・差分取得・端末内保存・エラー対策） =====
+// ↓↓ 新しいGASのウェブアプリURL（/exec で終わるもの）を貼り付けてください ↓↓
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxHZanPeRHCnEgiDTRTCEfMM8Qbypm8v8Tc3wR1LAMN20Y-p2Ip0uGnnedjVsRjkvhg/exec";
+const GAS_KEY_STORAGE = 'tradeToolPrefs_gasKey';
+const PX_DB_NAME = 'tradeToolPriceDB';
+const FULL_REFRESH_DAYS = 7;   // この日数が経ったら全期間を取り直す
+const KEEP_YEARS = 10;         // 端末に残す年数
+let fetchToken = 0;
 
-  status.innerText = "専用GASプロキシ経由で取得中...";
+function getGasKey(forceAsk) {
+  let k = '';
+  try { k = localStorage.getItem(GAS_KEY_STORAGE) || ''; } catch (e) {}
+  if (!k || forceAsk) {
+    const msg = forceAsk ? 'アクセスキーが違います。もう一度入力してください'
+                         : 'GASのアクセスキーを入力してください\n（この端末では最初の1回だけです）';
+    const input = prompt(msg, '');
+    if (!input) return '';
+    k = input.trim();
+    try { localStorage.setItem(GAS_KEY_STORAGE, k); } catch (e) {}
+  }
+  return k;
+}
+
+// --- 端末内の株価保存（IndexedDB：容量が大きく10年分×多銘柄でも入る） ---
+function pxDb() {
+  return new Promise((res, rej) => {
+    if (!window.indexedDB) return rej(new Error('no indexedDB'));
+    const r = indexedDB.open(PX_DB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('prices');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function pxGet(ticker) {
   try {
-    var gasBaseUrl = "https://script.google.com/macros/s/AKfycbxmQEpaLXfF4DXlvrmi4Byr8qFei637lhBSA9sCMDba5n_TJJ-6I4dR9iAGNo8zNjEpfg/exec";
-    var gasUrl = gasBaseUrl + "?ticker=" + ticker;
+    const db = await pxDb();
+    return await new Promise(res => {
+      const q = db.transaction('prices', 'readonly').objectStore('prices').get(ticker);
+      q.onsuccess = () => res(q.result || null);
+      q.onerror = () => res(null);
+    });
+  } catch (e) { return null; }
+}
+async function pxPut(ticker, rec) {
+  try {
+    const db = await pxDb();
+    await new Promise(res => {
+      const tx = db.transaction('prices', 'readwrite');
+      tx.objectStore('prices').put(rec, ticker);
+      tx.oncomplete = res; tx.onerror = res; tx.onabort = res;
+    });
+  } catch (e) {}
+}
 
-    var response = await fetch(gasUrl);
-    var resultJson = await response.json();
+function jstDayKey(ts) { return new Date((ts + 9 * 3600) * 1000).toISOString().slice(0, 10); }
 
-    if (!resultJson.chart || !resultJson.chart.result) {
-      throw new Error("データ構造が不正です");
-    }
-
-    var result = resultJson.chart.result[0];
-    const timestamps = result.timestamp;
-    const quotes = result.indicators.quote[0];
-
-    dailyData = timestamps.map((ts, i) => {
-      const dObj = new Date(ts * 1000);
-      const y = String(dObj.getFullYear()).substring(2);
-      const m = String(dObj.getMonth() + 1).padStart(2, '0');
-      const d = String(dObj.getDate()).padStart(2, '0');
-      const o = quotes.open[i]  || quotes.close[i];
-      const h = quotes.high[i]  || quotes.close[i];
-      const l = quotes.low[i]   || quotes.close[i];
-      const c = quotes.close[i];
-      return {
-        date: `${y}-${m}-${d}`,
-        rawDate: dObj,
-        open:  Math.round(o),
-        high:  Math.round(h),
-        low:   Math.round(l),
-        close: Math.round(c)
-      };
-    }).filter(d => d.close && !isNaN(d.close));
-
-    for (let j = dailyData.length - 2; j >= 0; j--) {
-    if (dailyData[j+1].close / dailyData[j].close < 0.3) {
-     let r = dailyData[j+1].close / dailyData[j].close;
-      for (let k = 0; k <= j; k++) {
-        ['open','high','low','close'].forEach(p => dailyData[k][p] = Math.round(dailyData[k][p] * r));
+// --- GASを呼ぶ（待ち時間の上限＋最大3回の自動再試行） ---
+async function callGas(ticker, range, timeoutMs) {
+  let key = getGasKey(false);
+  if (!key) { const e = new Error('アクセスキーが未入力です'); e.fatal = true; throw e; }
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const ctrl = window.AbortController ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+    try {
+      const url = GAS_URL + '?ticker=' + encodeURIComponent(ticker) + '&range=' + range +
+                  '&key=' + encodeURIComponent(key) + '&_=' + Date.now();
+      const resp = await fetch(url, ctrl ? { signal: ctrl.signal } : {});
+      const j = await resp.json();
+      if (j.error === 'AUTH') {
+        key = getGasKey(true);
+        if (!key) { const e = new Error('アクセスキーが違います'); e.fatal = true; throw e; }
+        continue;
       }
-     }
+      if (j.error === 'NOT_FOUND' || j.error === 'BAD_REQUEST') { const e = new Error(j.message || '銘柄が見つかりません'); e.fatal = true; throw e; }
+      if (j.error) throw new Error(j.message || j.error);
+      if (!j.t || !j.t.length) throw new Error('データが空です');
+      return j;
+    } catch (e) {
+      if (e.fatal) throw e;
+      lastErr = (e.name === 'AbortError') ? new Error('時間切れ（' + Math.round(timeoutMs / 1000) + '秒）') : e;
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+    } finally {
+      if (timer) clearTimeout(timer);
     }
+  }
+  throw lastErr || new Error('取得失敗');
+}
 
-    currentDailyIndex = dailyData.length - 1;
-    weeklyData  = aggregateData('weekly');
-    monthlyData = aggregateData('monthly');
+function recFromGas(j) { return { t: j.t.slice(), o: j.o.slice(), h: j.h.slice(), l: j.l.slice(), c: j.c.slice() }; }
 
-    updateAllMA();
+// 保存データに新しいデータをつなげる（同じ日は新しい方を採用、10年より古い分は削除）
+function mergeRec(base, add) {
+  const map = new Map();
+  [base, add].forEach(r => {
+    if (!r || !r.t) return;
+    r.t.forEach((ts, i) => map.set(jstDayKey(ts), [ts, r.o[i], r.h[i], r.l[i], r.c[i]]));
+  });
+  const cutoff = Date.now() / 1000 - KEEP_YEARS * 365.25 * 86400;
+  const rows = [...map.values()].filter(x => x[0] >= cutoff).sort((a, b) => a[0] - b[0]);
+  return { t: rows.map(x => x[0]), o: rows.map(x => x[1]), h: rows.map(x => x[2]), l: rows.map(x => x[3]), c: rows.map(x => x[4]) };
+}
+
+// 重なっている日の終値が1%以上違えば「ずれ」（株式分割など）と判断
+function isMismatch(base, add) {
+  const baseMap = new Map();
+  base.t.forEach((ts, i) => baseMap.set(jstDayKey(ts), base.c[i]));
+  const lastKey = jstDayKey(base.t[base.t.length - 1]);   // 前回の最終日は場中の途中値の可能性があるので除外
+  for (let i = 0; i < add.t.length; i++) {
+    const k = jstDayKey(add.t[i]);
+    if (k === lastKey || !baseMap.has(k)) continue;
+    const a = baseMap.get(k), b = add.c[i];
+    if (a == null || b == null || !a) continue;
+    if (Math.abs(a - b) / Math.abs(a) > 0.01) return true;
+  }
+  return false;
+}
+
+// 保存形式 → チャート用の日足データ（従来と同じ加工）
+function buildDailyData(rec) {
+  const arr = rec.t.map((ts, i) => {
+    const dObj = new Date(ts * 1000);
+    const y = String(dObj.getFullYear()).substring(2);
+    const m = String(dObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dObj.getDate()).padStart(2, '0');
+    const c = rec.c[i];
+    const o = rec.o[i] || c;
+    const h = rec.h[i] || c;
+    const l = rec.l[i] || c;
+    return {
+      date: `${y}-${m}-${d}`,
+      rawDate: dObj,
+      open:  Math.round(o),
+      high:  Math.round(h),
+      low:   Math.round(l),
+      close: Math.round(c)
+    };
+  }).filter(d => d.close && !isNaN(d.close));
+
+  for (let j = arr.length - 2; j >= 0; j--) {
+    if (arr[j + 1].close / arr[j].close < 0.3) {
+      let r = arr[j + 1].close / arr[j].close;
+      for (let k = 0; k <= j; k++) {
+        ['open', 'high', 'low', 'close'].forEach(p => arr[k][p] = Math.round(arr[k][p] * r));
+      }
+    }
+  }
+  return arr;
+}
+
+// チャートに反映。keepPosition=true なら練習中の日付・売買記録をそのまま残す
+function applyDailyData(newData, keepPosition) {
+  if (!newData.length) return;
+  let curDate = null, wasLatest = true;
+  if (keepPosition && dailyData.length) {
+    curDate = dailyData[currentDailyIndex].date;
+    wasLatest = currentDailyIndex >= dailyData.length - 1;
+  }
+  dailyData = newData;
+  if (keepPosition && curDate && !wasLatest) {
+    const idx = dailyData.findIndex(d => d.date === curDate);
+    currentDailyIndex = idx >= 0 ? idx : dailyData.length - 1;
+  } else {
     currentDailyIndex = dailyData.length - 1;
+  }
+  weeklyData  = aggregateData('weekly');
+  monthlyData = aggregateData('monthly');
+  if (!keepPosition) {
     tradeHistory = [];
     document.getElementById('log-area').innerHTML = "";
-    status.innerText = "読込完了(" + dailyData.length + "日分): " + ticker;
-    updateDisplay();
+  }
+  updateAllMA();
+  updateDisplay();
+}
 
+function doneMsg(ticker, kind, j) {
+  const last = dailyData.length ? dailyData[dailyData.length - 1].date : '';
+  let s = "読込完了(" + dailyData.length + "日分・" + kind + "・最終 " + last + "): " + ticker;
+  if (j && j.source === 'stale-cache') s += "（GAS側の前回データ）";
+  return s;
+}
+
+// 全期間の取得。初回はまず2年分をすぐ表示してから10年分を読み込む
+async function fullFetch(ticker, status, isCurrent, hasShown) {
+  if (!hasShown) {
+    const j2 = await callGas(ticker, '2y', 15000);
+    if (!isCurrent()) return;
+    const rec2 = mergeRec(null, recFromGas(j2));
+    rec2.lastFull = 0;               // まだ全期間ではない印
+    rec2.savedAt = Date.now();
+    await pxPut(ticker, rec2);
+    applyDailyData(buildDailyData(rec2), false);
+    status.innerText = "2年分を表示中… 10年分を読込中: " + ticker;
+  }
+  try {
+    const j = await callGas(ticker, '10y', 25000);
+    if (!isCurrent()) return;
+    const rec = mergeRec(null, recFromGas(j));
+    rec.lastFull = Date.now();
+    rec.savedAt = Date.now();
+    await pxPut(ticker, rec);
+    applyDailyData(buildDailyData(rec), true);
+    status.innerText = doneMsg(ticker, '全期間', j);
   } catch (e) {
-    status.innerText = "エラー: 取得失敗";
+    if (!isCurrent()) return;
+    if (!hasShown) {
+      status.innerText = "2年分のみ表示中（10年分の取得失敗: " + e.message + "）: " + ticker;
+      return;
+    }
+    throw e;
+  }
+}
+
+async function fetchData() {
+  const ticker = document.getElementById('ticker-input').value.trim();
+  const status = document.getElementById('status-display');
+  if (!ticker) return;
+  if (!GAS_URL || GAS_URL.indexOf('https://') !== 0) {
+    status.innerText = "エラー: GASのURLが未設定です";
+    return;
+  }
+  const myToken = ++fetchToken;
+  const isCurrent = () => myToken === fetchToken;   // 途中で別銘柄に切り替えたら古い結果は使わない
+
+  const cached = await pxGet(ticker);
+  const hasCache = !!(cached && cached.t && cached.t.length);
+  const now = Date.now();
+
+  // ① 端末に保存済みなら、まずそれをすぐ表示
+  if (hasCache) {
+    applyDailyData(buildDailyData(cached), false);
+    status.innerText = "保存データを表示中… 最新を確認中: " + ticker;
+  } else {
+    status.innerText = "取得中…（初回）: " + ticker;
+  }
+
+  try {
+    const lastTs = hasCache ? cached.t[cached.t.length - 1] : 0;
+    const needFull = !hasCache || !cached.lastFull ||
+                     (now - cached.lastFull) > FULL_REFRESH_DAYS * 86400000 ||
+                     (now / 1000 - lastTs) > 25 * 86400;
+    if (needFull) {
+      await fullFetch(ticker, status, isCurrent, hasCache);
+      return;
+    }
+    // ② 差分取得（最近の数日分だけ）
+    const range = (now / 1000 - lastTs) <= 4 * 86400 ? '5d' : '1mo';
+    const j = await callGas(ticker, range, 12000);
+    if (!isCurrent()) return;
+    const add = recFromGas(j);
+    if (isMismatch(cached, add)) {
+      status.innerText = "データのずれを検出、全期間を取り直し中…: " + ticker;
+      await fullFetch(ticker, status, isCurrent, true);
+      return;
+    }
+    const merged = mergeRec(cached, add);
+    merged.lastFull = cached.lastFull;
+    merged.savedAt = now;
+    await pxPut(ticker, merged);
+    applyDailyData(buildDailyData(merged), true);
+    status.innerText = doneMsg(ticker, '差分更新', j);
+  } catch (e) {
+    if (!isCurrent()) return;
     console.error(e);
+    if (hasCache) {
+      status.innerText = "前回データを表示中（取得失敗: " + e.message + "）: " + ticker;
+    } else {
+      status.innerText = "エラー: 取得失敗（" + e.message + "）";
+    }
   }
 }
 
