@@ -1092,7 +1092,41 @@ function isMismatch(base, add) {
   return false;
 }
 
-// 保存形式 → チャート用の日足データ（従来と同じ加工）
+// 保存形式 → チャート用の日足データ
+//  ① 1〜3日だけ極端に飛んでいる値（Yahooのデータ不具合）を前後に合わせて直す
+//  ② 急落後もその水準が続く場合だけを「分割」とみなして過去分を補正
+function repairOutliers(arr) {
+  const MAXRUN = 3;
+  const inBand = r => r >= 0.3 && r <= 3.3;
+  for (let i = 1; i < arr.length - 1; i++) {
+    const prev = arr[i - 1].close;
+    if (inBand(arr[i].close / prev)) continue;
+    let e = i;
+    while (e - i + 1 < MAXRUN && e + 1 < arr.length && !inBand(arr[e + 1].close / prev)) e++;
+    if (e + 1 >= arr.length) break;                 // 最新日まで続く場合は判断しない
+    const next = arr[e + 1].close;
+    const back = next / prev;
+    if (back < 0.7 || back > 1.43) continue;       // 元の水準に戻らない → 分割の可能性（②で判断）
+    let sum = 0;
+    for (let x = i; x <= e; x++) sum += arr[x].close;
+    const ref = (prev + next) / 2;
+    const ratio = ref / (sum / (e - i + 1));
+    const k = ratio >= 1 ? Math.round(ratio) : 1 / Math.round(1 / ratio);
+    const useK = Math.abs(ratio / k - 1) < 0.15;    // 10倍・1/10などきれいな倍率なら正しい値に戻せる
+    for (let x = i; x <= e; x++) {
+      ['open', 'high', 'low', 'close'].forEach(p => arr[x][p] = useK ? arr[x][p] * k : ref);
+    }
+    i = e;
+  }
+}
+
+function medianClose(arr, from, to) {
+  const v = [];
+  for (let x = Math.max(0, from); x <= Math.min(arr.length - 1, to); x++) v.push(arr[x].close);
+  v.sort((a, b) => a - b);
+  return v.length ? v[Math.floor(v.length / 2)] : NaN;
+}
+
 function buildDailyData(rec) {
   const arr = rec.t.map((ts, i) => {
     const dObj = new Date(ts * 1000);
@@ -1100,27 +1134,34 @@ function buildDailyData(rec) {
     const m = String(dObj.getMonth() + 1).padStart(2, '0');
     const d = String(dObj.getDate()).padStart(2, '0');
     const c = rec.c[i];
-    const o = rec.o[i] || c;
-    const h = rec.h[i] || c;
-    const l = rec.l[i] || c;
     return {
       date: `${y}-${m}-${d}`,
       rawDate: dObj,
-      open:  Math.round(o),
-      high:  Math.round(h),
-      low:   Math.round(l),
-      close: Math.round(c)
+      open:  rec.o[i] || c,
+      high:  rec.h[i] || c,
+      low:   rec.l[i] || c,
+      close: c
     };
   }).filter(d => d.close && !isNaN(d.close));
 
+  repairOutliers(arr);
+
   for (let j = arr.length - 2; j >= 0; j--) {
     if (arr[j + 1].close / arr[j].close < 0.3) {
-      let r = arr[j + 1].close / arr[j].close;
+      const after = medianClose(arr, j + 1, j + 5);
+      const before = medianClose(arr, j - 4, j);
+      if (!(after / before < 0.3)) continue;        // すぐ戻っている＝分割ではない
+      const r = arr[j + 1].close / arr[j].close;
       for (let k = 0; k <= j; k++) {
-        ['open', 'high', 'low', 'close'].forEach(p => arr[k][p] = Math.round(arr[k][p] * r));
+        ['open', 'high', 'low', 'close'].forEach(p => arr[k][p] = arr[k][p] * r);
       }
     }
   }
+
+  arr.forEach(d => {
+    d.open = Math.round(d.open); d.high = Math.round(d.high);
+    d.low = Math.round(d.low);   d.close = Math.round(d.close);
+  });
   return arr;
 }
 
