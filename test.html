@@ -757,7 +757,10 @@ function rebuildTickerSelect() {
   const box = document.getElementById('ticker-search');
   if (box && cur) {
     const t = findTicker(cur.value.trim(), true);
-    box.placeholder = t ? (IS_MOBILE ? t.short : t.name) : (IS_MOBILE ? '名前・よみ・コード' : '名前・よみ・コードで検索');
+    const code = cur.value.trim();
+    box.placeholder = t ? (IS_MOBILE ? t.short : t.name)
+                    : code ? code + '（名前未登録）'
+                    : (IS_MOBILE ? '名前・よみ・コード' : '名前・よみ・コードで検索');
   }
 }
 function pickTicker(code) {
