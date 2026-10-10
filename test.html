@@ -1212,6 +1212,9 @@ const GAS_KEY_STORAGE = 'tradeToolPrefs_gasKey';
 const PX_DB_NAME = 'tradeToolPriceDB';
 const FULL_REFRESH_DAYS = 7;   // この日数が経ったら全期間を取り直す
 const KEEP_YEARS = 10;         // 端末に残す年数
+const MIN_FULL_ROWS = 400;     // 終値の入った日がこれ未満なら「全期間」とみなさない
+// 終値が入っている日数（空の終値は数えない）
+function validCount(rec) { return rec && rec.c ? rec.c.filter(v => v != null && !isNaN(v)).length : 0; }
 let fetchToken = 0;
 
 function getGasKey(forceAsk) {
@@ -1443,12 +1446,22 @@ async function fullFetch(ticker, status, isCurrent, hasShown) {
   try {
     const j = await callGas(ticker, '10y', 25000);
     if (!isCurrent()) return;
-    const rec = mergeRec(null, recFromGas(j));
-    rec.lastFull = Date.now();
+    const add = recFromGas(j);
+    const n = validCount(add);
+    let rec;
+    if (n >= MIN_FULL_ROWS) {
+      rec = mergeRec(null, add);                 // 正常：置き換え（分割補正も反映）
+      rec.lastFull = Date.now();
+    } else {
+      rec = mergeRec(await pxGet(ticker), add);  // 不足：今のデータに足すだけ
+      rec.lastFull = 0;                          // 次回もう一度、全期間を取りに行く
+    }
     rec.savedAt = Date.now();
     await pxPut(ticker, rec);
     applyDailyData(buildDailyData(rec), true);
-    status.innerText = doneMsg(ticker, '全期間', j);
+    status.innerText = (n >= MIN_FULL_ROWS)
+      ? doneMsg(ticker, '全期間', j)
+      : doneMsg(ticker, '全期間データ不足・終値' + n + '件・次回再取得', j);
   } catch (e) {
     if (!isCurrent()) return;
     if (!hasShown) {
@@ -1487,7 +1500,8 @@ async function fetchData() {
     const lastTs = hasCache ? cached.t[cached.t.length - 1] : 0;
     const needFull = !hasCache || !cached.lastFull ||
                      (now - cached.lastFull) > FULL_REFRESH_DAYS * 86400000 ||
-                     (now / 1000 - lastTs) > 25 * 86400;
+                     (now / 1000 - lastTs) > 25 * 86400 ||
+                     validCount(cached) < MIN_FULL_ROWS;   // 壊れた保存データは自動で取り直す
     if (needFull) {
       await fullFetch(ticker, status, isCurrent, hasCache);
       if (!hasCache && isCurrent() && dailyData.length) onTickerLoaded(ticker);
