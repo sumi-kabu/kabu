@@ -199,13 +199,15 @@ body.mobile #view-range-val {
 /* ★ 銘柄検索 */
 .ticker-row { position: relative; display: flex; gap: 2px; align-items: stretch; }
 .ticker-search-wrap { flex: 1 1 auto; min-width: 0; }
-#ticker-select.ticker-mini { flex: 0 0 44px; width: 44px !important; min-width: 44px; color: transparent; cursor: pointer; }
-#ticker-select.ticker-mini option, #ticker-select.ticker-mini optgroup { color: #000; }
-#ticker-search { width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px; }
-body.mobile #ticker-search { font-size: 16px; padding: 6px; }
+.ticker-mini-wrap { position: relative; flex: 0 0 34px; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid #ccc; border-radius: 3px; color: #333; font-size: 0.8em; box-sizing: border-box; }
+.ticker-mini-wrap select { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100% !important; height: 100%; opacity: 0; cursor: pointer; margin: 0; padding: 0; }
+#ticker-search { width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px; color: #000; }
+body.mobile #ticker-search { font-size: 0.85em; padding: 6px; }
+#ticker-search::placeholder { color: #222; opacity: 1; }
+#ticker-search::-webkit-input-placeholder { color: #222; opacity: 1; }
 .ticker-results { display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 2000; background: #fff; border: 1px solid #bbb; border-radius: 3px; max-height: 260px; overflow-y: auto; box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
 .ticker-results div { padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.85em; }
-body.mobile .ticker-results div { padding: 10px 8px; font-size: 15px; }
+body.mobile .ticker-results div { padding: 8px 6px; font-size: 0.85em; }
 .ticker-results div:hover, .ticker-results div.active { background: #e5f2fc; }
 .ticker-results .tr-note { color: #888; cursor: default; }
 </style>
@@ -229,9 +231,9 @@ body.mobile .ticker-results div { padding: 10px 8px; font-size: 15px; }
     <div class="input-group">
       <div class="ticker-row">
         <div class="ticker-search-wrap">
-          <input type="search" id="ticker-search" placeholder="🔍 名前・よみ・コードで検索" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
+          <input type="search" id="ticker-search" placeholder="名前・よみ・コードで検索" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
         </div>
-        <select id="ticker-select" class="ticker-mini" title="一覧から選ぶ" onchange="pickTicker(this.value)"></select>
+        <div class="ticker-mini-wrap" title="一覧から選ぶ">▼<select id="ticker-select" onchange="pickTicker(this.value)"></select></div>
         <div id="ticker-results" class="ticker-results"></div>
       </div>
       <div style="display:flex; gap:2px;">
@@ -429,9 +431,9 @@ body.mobile .ticker-results div { padding: 10px 8px; font-size: 15px; }
       <div style="display:flex; flex-direction: column; gap:4px;">
         <div class="ticker-row">
           <div class="ticker-search-wrap">
-            <input type="search" id="ticker-search" placeholder="🔍 名前・よみ・コード" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
+            <input type="search" id="ticker-search" placeholder="名前・よみ・コード" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
           </div>
-          <select id="ticker-select" class="ticker-mini" onchange="pickTicker(this.value)"></select>
+          <div class="ticker-mini-wrap">▼<select id="ticker-select" onchange="pickTicker(this.value)"></select></div>
           <div id="ticker-results" class="ticker-results"></div>
         </div>
         <div style="display:flex; gap:4px;">
@@ -755,7 +757,7 @@ function rebuildTickerSelect() {
   const box = document.getElementById('ticker-search');
   if (box && cur) {
     const t = findTicker(cur.value.trim(), true);
-    box.placeholder = '🔍 ' + (t ? tickerLabel(t) : (cur.value.trim() || (IS_MOBILE ? '名前・よみ・コード' : '名前・よみ・コードで検索')));
+    box.placeholder = t ? (IS_MOBILE ? t.short : t.name) : (IS_MOBILE ? '名前・よみ・コード' : '名前・よみ・コードで検索');
   }
 }
 function pickTicker(code) {
