@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="株トレ練習">
+<title>株トレード練習ツール（PC・スマホ共通版）</title>
+<script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+<style>
+/* ===== PC用 ===== */
+body.pc { font-family: "Meiryo", sans-serif; margin: 0; background: #fff; display: flex; height: 100vh; overflow: hidden; }
+body.pc #main-container { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
+body.pc #chart { flex-grow: 1; width: 100%; }
+body.pc #hline-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10;
+  display: none;
+  cursor: crosshair;
+}
+body.pc.hline-mode #hline-overlay { display: block; }
+body.pc.hline-mode #chart,
+body.pc.hline-mode #chart * { cursor: crosshair !important; }
+body.pc .hline-mode-active { outline: 2px solid #e91e8c !important; outline-offset: 1px; }
+body.pc #hline-overlay.hover-line { cursor: ns-resize !important; }
+body.pc #hline-guide {
+  position: absolute; left: 0; right: 0;
+  height: 0; border-top: 1px dashed #e91e8c;
+  pointer-events: none; display: none; z-index: 11;
+}
+body.pc #hline-guide-label {
+  position: absolute; right: 2px;
+  background: #e91e8c; color: #fff;
+  font-size: 10px; padding: 1px 4px; border-radius: 2px;
+  pointer-events: none; display: none; z-index: 12;
+  transform: translateY(-50%); white-space: nowrap;
+}
+body.pc #side-panel { width: 270px; background: #f4f4f4; border-left: 2px solid #ccc; padding: 6px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+body.pc .section { background: white; border: 1px solid #ccc; padding: 4px 6px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+body.pc .section-title { font-weight: bold; font-size: 0.85em; border-bottom: 1px solid #333; margin-bottom: 2px; }
+body.pc .btn-row { display: flex; gap: 3px; margin-bottom: 3px; }
+body.pc button { flex: 1; cursor: pointer; padding: 5px 2px; font-weight: bold; border: 1px solid #999; border-radius: 3px; background: #fff; font-size: 0.8em; }
+body.pc button:active { background: #ddd; }
+body.pc .active-mode { background: #4caf50 !important; color: white !important; border: none !important; }
+body.pc .btn-buy { background: #ff5252; color: white; border: none; }
+body.pc .btn-sell { background: #2196f3; color: white; border: none; }
+body.pc .btn-close-buy { background: #fff; color: #ff5252; border: 1px solid #ff5252; }
+body.pc .btn-close-sell { background: #fff; color: #2196f3; border: 1px solid #2196f3; }
+body.pc .btn-nav { background: #4caf50; color: white; border: none; }
+body.pc .btn-reset { background: #757575; color: white; border: none; font-size: 0.7em; }
+body.pc .btn-save { background: #f57c00; color: white; border: none; }
+body.pc .stat-val { font-size: 1.1em; font-weight: bold; text-align: center; margin: 0; color: red; }
+body.pc .pos-table { width: 100%; border-collapse: collapse; font-size: 0.75em; }
+body.pc .pos-table th,
+body.pc .pos-table td { border: 1px solid #ccc; padding: 2px; text-align: center; }
+body.pc #log-area { height: 80px; background: #eee; border: 1px solid #ccc; padding: 4px; font-size: 0.7em; overflow-y: auto; border-radius: 3px; }
+body.pc .input-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+body.pc input[type="text"],
+body.pc input[type="number"],
+body.pc select { padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.85em; width: 100%; box-sizing: border-box; }
+body.pc #ma-short-val { font-size: 1.1em !important; font-weight: normal; text-align: left; height: auto; padding: 1px 2px !important; }
+
+/* ===== スマホ用 ===== */
+body.mobile {
+  font-family: "Meiryo", sans-serif;
+  margin: 0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  position: fixed;
+}
+body.mobile #main-container { flex: 5.5; min-height: 0; position: relative; }
+body.mobile #chart { height: 100%; width: 100%; }
+body.mobile #hline-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10;
+  display: none;
+  cursor: crosshair;
+  touch-action: none; 
+}
+body.mobile.hline-mode #hline-overlay { display: block; }
+body.mobile.hline-mode #chart,
+body.mobile.hline-mode #chart * { cursor: crosshair !important; }
+body.mobile .hline-mode-active { outline: 2px solid #e91e8c !important; outline-offset: 1px; }
+body.mobile #hline-overlay.hover-line { cursor: ns-resize !important; }
+body.mobile #hline-guide {
+  position: absolute; left: 0; right: 0;
+  height: 0; border-top: 1px dashed #e91e8c;
+  pointer-events: none; display: none; z-index: 11;
+}
+body.mobile #hline-guide-label {
+  position: absolute; right: 2px;
+  background: #e91e8c; color: #fff;
+  font-size: 10px; padding: 1px 4px; border-radius: 2px;
+  pointer-events: none; display: none; z-index: 12;
+  transform: translateY(-50%); white-space: nowrap;
+}
+body.mobile #side-panel {
+  flex: 4.5;
+  background: #f4f4f4;
+  border-top: 2px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body.mobile #panels-row {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+body.mobile #ma-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: #fff;
+  border-bottom: 1px solid #ccc;
+  padding: 3px 6px;
+  font-size: 0.8em;
+}
+body.mobile #ma-bar button { padding: 3px 0 !important; }
+body.mobile #ma-bar input { padding: 3px 2px !important; }
+body.mobile #tf-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: #fff; border-bottom: 1px solid #ccc; }
+body.mobile #tf-bar #btn-daily,
+body.mobile #tf-bar #btn-weekly,
+body.mobile #tf-bar #btn-monthly { flex: 1 1 0; min-height: 0; height: 30px; font-size: 0.85em; padding: 2px 0 !important; line-height: 1; }
+body.mobile #panels-row { padding-top: 10px; }
+body.mobile #right-panel button { min-height: 42px !important; }
+body.mobile #left-panel { display: flex; flex-direction: column; overflow: hidden; gap: 0; }
+body.mobile .lp-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 4px; padding-right: 2px; }
+body.mobile .lp-foot { flex: 0 0 auto; padding-top: 6px; border-top: 1px solid #bbb; }
+body.mobile #right-panel { display: flex; flex-direction: column; overflow: hidden; gap: 0; }
+body.mobile .rp-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 9px; padding-right: 2px; }
+body.mobile .rp-foot { flex: 0 0 auto; padding-top: 9px; border-top: 1px solid #bbb; }
+body.mobile #right-panel .btn-row { margin-bottom: 8px !important; }
+body.mobile #right-panel .section { padding: 7px 6px !important; }
+body.mobile .panel-half {
+  flex: 1;
+  padding: 4px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+body.mobile #left-panel { border-right: 1px solid #ccc; }
+body.mobile .section { background: white; border: 1px solid #ccc; padding: 3px 6px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); flex-shrink: 0; }
+body.mobile .section-title { font-weight: bold; font-size: 0.75em; border-bottom: 1px solid #333; margin-bottom: 2px; color: #333; }
+body.mobile .btn-row { display: flex; gap: 3px; margin-bottom: 3px; }
+body.mobile button {
+  flex: 1;
+  cursor: pointer;
+  padding: 9px 2px;
+  font-weight: bold;
+  border: 1px solid #999;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 0.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+}
+body.mobile button:active { background: #ddd; }
+body.mobile .active-mode { background: #4caf50 !important; color: white !important; border: none !important; }
+body.mobile .btn-buy { background: #ff5252; color: white; border: none; }
+body.mobile .btn-sell { background: #2196f3; color: white; border: none; }
+body.mobile .btn-close-buy { background: #fff; color: #ff5252; border: 1px solid #ff5252; }
+body.mobile .btn-close-sell { background: #fff; color: #2196f3; border: 1px solid #2196f3; }
+body.mobile .btn-nav { background: #4caf50; color: white; border: none; }
+body.mobile .btn-reset { background: #757575; color: white; border: none; font-size: 0.7em; padding: 5px; width: 100%; margin-top: 4px; }
+body.mobile .btn-save { background: #f57c00; color: white; border: none; }
+body.mobile .stat-val { font-size: 1em; font-weight: bold; text-align: center; color: red; margin: 2px 0; }
+body.mobile .pos-table { width: 100%; border-collapse: collapse; font-size: 0.7em; }
+body.mobile .pos-table th,
+body.mobile .pos-table td { border: 1px solid #ccc; padding: 3px 1px; text-align: center; }
+body.mobile #log-area { min-height: 60px; background: #eee; border: 1px solid #ccc; padding: 4px; font-size: 0.7em; overflow-y: auto; flex-shrink: 0; }
+body.mobile input[type="text"],
+body.mobile input[type="number"],
+body.mobile select { padding: 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.85em; width: 100%; box-sizing: border-box; }
+body.mobile #unrealized-profit { font-size: 0.78em; font-weight: bold; white-space: nowrap; }
+body.mobile #last-profit { font-size: 0.7em; height: 1.2em; white-space: nowrap; overflow: hidden; }
+body.mobile #view-range-val {
+  font-size: 1.2em !important;
+  font-weight: normal;
+  text-align: left;
+  height: auto;
+  padding: 5px 5px !important;
+}
+/* ★ 銘柄検索 */
+.ticker-search-wrap { position: relative; }
+#ticker-search { width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px; }
+body.mobile #ticker-search { font-size: 16px; padding: 6px; }
+.ticker-results { display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 2000; background: #fff; border: 1px solid #bbb; border-radius: 3px; max-height: 260px; overflow-y: auto; box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
+.ticker-results div { padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.85em; }
+body.mobile .ticker-results div { padding: 10px 8px; font-size: 15px; }
+.ticker-results div:hover, .ticker-results div.active { background: #e5f2fc; }
+.ticker-results .tr-note { color: #888; cursor: default; }
+</style>
+</head>
+<body>
+
+<div id="main-container">
+  <div id="chart"></div>
+  <!-- ★ 水平線クリック受付用オーバーレイ -->
+  <div id="hline-overlay"></div>
+  <!-- ★ 水平線ガイド -->
+  <div id="hline-guide"></div>
+  <div id="hline-guide-label"></div>
+</div>
+
+<!-- ===== PC用の操作パネル ===== -->
+<template id="tpl-pc">
+<div id="side-panel">
+  <!-- 銘柄選択 -->
+  <div class="section">
+    <div class="input-group">
+      <div class="ticker-search-wrap">
+        <input type="search" id="ticker-search" placeholder="🔍 名前・よみ・コードで検索" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
+        <div id="ticker-results" class="ticker-results"></div>
+      </div>
+      <select id="ticker-select" onchange="pickTicker(this.value)"></select>
+      <div style="display:flex; gap:2px;">
+        <input type="text" id="ticker-input" placeholder="コード" style="width: 70px;" value="7203">
+        <button class="btn-nav" onclick="fetchData()">WEB銘柄読込</button>
+        <button class="btn-nav" onclick="removeCurrentTicker()" title="表示中の銘柄を一覧から外す">一覧から外す</button>
+      </div>
+    </div>
+    <div id="status-display" style="font-size: 0.7em; color: #666;">銘柄を選択または入力</div>
+  </div>
+
+  <!-- ① MA設定（タイトル削除・インライン化） -->
+  <div class="section">
+    <div style="font-size: 0.78em; display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+      <div style="display: flex; align-items: center; gap: 2px;">
+        <span style="font-weight: bold; white-space: nowrap;">短期</span>
+        <button onclick="adjustMA(-1)" style="flex:none; width: 20px; padding: 2px; background: #eee;">－</button>
+        <input type="number" id="ma-short-val" value="4"
+               style="width: 38px; text-align: center; border: 1px solid #ccc; font-size: 1.05em; padding: 1px;"
+               onchange="saveMAPrefs(); updateAllMA()">
+        <button onclick="adjustMA(1)" style="flex:none; width: 20px; padding: 2px; background: #eee;">＋</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 2px;">
+        <span style="font-weight: bold; white-space: nowrap;">中期</span>
+        <button onclick="adjustMidMA(-1)" style="flex:none; width: 20px; padding: 2px; background: #eee;">－</button>
+        <input type="number" id="ma-mid-val" value="8"
+               style="width: 38px; text-align: center; border: 1px solid #ccc; font-size: 1.05em; padding: 1px;"
+               onchange="saveMAPrefs(); updateAllMA()">
+        <button onclick="adjustMidMA(1)" style="flex:none; width: 20px; padding: 2px; background: #eee;">＋</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 時間軸切替 + 表示範囲を統合 -->
+  <div class="section">
+    <div class="btn-row" style="margin-bottom:4px;">
+      <button id="btn-daily" class="active-mode" onclick="changeTimeframe('daily')">日足</button>
+      <button id="btn-weekly" onclick="changeTimeframe('weekly')">週足</button>
+      <button id="btn-monthly" onclick="changeTimeframe('monthly')">月足</button>
+    </div>
+    <div style="font-size:0.8em; display:flex; align-items:center; gap:6px;">
+      <span style="font-weight:bold; white-space:nowrap;">表示数:</span>
+      <button onclick="adjustViewRange(-10)" style="flex:none; width:32px; padding:2px; background:#eee;">－10</button>
+      <input type="number" id="view-range-val" value="80"
+             style="flex-grow:1; min-width:0; width:auto; text-align:center; border:1px solid #ccc; font-size:1em; box-sizing:border-box;"
+             onchange="updateViewRange()">
+      <button onclick="adjustViewRange(10)" style="flex:none; width:32px; padding:2px; background:#eee;">＋10</button>
+    </div>
+  </div>
+
+  <!-- ★ 水平線セクション（コンパクト1行） -->
+  <div class="section">
+    <div style="display:flex; align-items:center; gap:4px;">
+      <span style="font-weight:bold; font-size:0.8em; white-space:nowrap;">水平線:</span>
+      <button id="btn-hline-on" onclick="setHlineMode(true)"
+              style="flex:none; padding:2px 6px; font-size:0.75em; background:#e91e8c; color:white; border:none; border-radius:3px;">ON</button>
+      <button id="btn-hline-off" onclick="setHlineMode(false)"
+              style="flex:none; padding:2px 6px; font-size:0.75em; background:#757575; color:white; border:none; border-radius:3px;">全消去</button>
+      <span id="hline-status" style="font-size:0.72em; color:#888; white-space:nowrap;">OFF</span>
+    </div>
+  </div>
+
+  <!-- エントリー日数表示 -->
+  <div class="section">
+    <div style="display:flex; align-items:center; gap:4px;">
+      <span style="font-weight:bold; font-size:0.8em; white-space:nowrap;">エントリー:</span>
+      <span id="entry-day-count" style="font-weight:bold; font-size:0.8em; color:#999; flex-grow:1;">- 日目</span>
+      <button id="btn-entry-back" class="btn-nav" onclick="goToEntryDay()"
+              style="flex:none; padding:2px 6px; font-size:0.75em; border-radius:3px;">初日に戻る</button>
+    </div>
+  </div>
+
+  <!-- ⑤ 損益（2行コンパクト版・大きな数値対応） -->
+  <div class="section">
+    <div style="display:flex; align-items:center; gap:6px;">
+      <span style="font-size:0.7em; color:#666; font-weight:bold; white-space:nowrap;">累計</span>
+      <div id="total-profit" class="stat-val"
+           style="font-size:1.05em; text-align:left; flex:1 1 0; min-width:0; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">0 円</div>
+      <button class="btn-reset" style="flex:none; padding:3px 8px; font-size:0.7em;" onclick="resetProfit()">リセット</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+      <div id="unrealized-profit" style="font-size:0.78em; font-weight:bold; white-space:nowrap;">含み: 0 円</div>
+      <div id="last-profit" style="font-size:0.7em; font-weight:bold; flex-grow:1; text-align:right; height:12px; white-space:nowrap; overflow:hidden;"></div>
+    </div>
+  </div>
+
+
+  <!-- ポジション (玉操作) -->
+  <div class="section">
+    <div class="section-title">ポジション (玉操作)</div>
+    <table class="pos-table">
+      <tr><th style="color:blue">売玉</th><th>単価</th><th style="color:red">買玉</th><th>単価</th></tr>
+      <tr><td id="short-qty">0</td><td id="short-avg">-</td><td id="long-qty">0</td><td id="long-avg">-</td></tr>
+    </table>
+    <div style="margin-top:6px;">
+      <div class="btn-row">
+        <button class="btn-sell" onclick="addPosition('short')">売(100)追加</button>
+        <button class="btn-buy" onclick="addPosition('long')">買(100)追加</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn-close-sell" onclick="closeOne('short')">売(100)決済</button>
+        <button class="btn-close-buy" onclick="closeOne('long')">買(100)決済</button>
+      </div>
+    </div>
+    <button style="width:100%; height:24px; margin-top:3px; font-size:0.75em;" onclick="closeAll()">全ポジション一括決済</button>
+  </div>
+
+  <!-- ① 操作（タイトル削除）＋ ② 1ヶ月/3ヶ月/1年を3列グリッド化 -->
+  <div class="section">
+    <div class="btn-row">
+      <button onclick="moveDay(-1)">←戻る</button>
+      <button class="btn-nav" onclick="moveDay(1)">翌日→</button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:3px; margin-bottom:3px;">
+      <button onclick="moveJump(-20)">1ヶ月戻</button>
+      <button onclick="moveJump(-60)">3ヶ月戻</button>
+      <button onclick="moveJump(-240)">1年戻</button>
+      <button onclick="moveJump(20)">1ヶ月進</button>
+      <button onclick="moveJump(60)">3ヶ月進</button>
+      <button onclick="moveJump(240)">1年進</button>
+    </div>
+    <div class="btn-row" style="margin-bottom:0;">
+      <button style="background:#eee" onclick="moveJump(-999999)">最古へ</button>
+      <button style="background:#eee" onclick="moveJump(999999)">最新へ</button>
+    </div>
+  </div>
+
+  <!-- クイックセーブ -->
+  <div class="section" style="border: 2px solid #4caf50;">
+    <div class="section-title" style="color:#2e7d32;">クイックセーブ</div>
+    <div class="btn-row">
+      <button class="btn-nav" onclick="quickSave(false, this)">新規保存</button>
+      <button class="btn-save" onclick="quickSave(true, this)">上書き保存</button>
+    </div>
+    <select id="save-list" style="width:100%; font-size:0.75em; margin:4px 0; padding:2px;"></select>
+    <div class="btn-row" style="margin-bottom:0;">
+      <button class="btn-nav" style="background:#2196f3" onclick="quickLoad()">読込</button>
+      <button class="btn-reset" onclick="deleteSave()">削除</button>
+    </div>
+    <div class="btn-row" style="margin-bottom:0; margin-top:3px;">
+      <button class="btn-reset" style="background:#b71c1c;"
+              onclick="if(confirm('全セーブデータを削除しますか？')){
+                Object.keys(localStorage).filter(k=>k.startsWith('tradeToolSave_')).forEach(k=>localStorage.removeItem(k));
+                updateSaveList();
+              }">全削除</button>
+    </div>
+  </div>
+
+  <!-- ① 履歴（タイトル削除） -->
+  <div class="section">
+    <div id="log-area"></div>
+  </div>
+</div>
+</template>
+
+<!-- ===== スマホ用の操作パネル ===== -->
+<template id="tpl-mobile">
+<div id="side-panel">
+
+  <!-- 短期MA・中期MA（全幅1段バー） -->
+  <div id="ma-bar">
+    <div style="display:flex; align-items:center; gap:4px;">
+      <span style="font-weight:bold; white-space:nowrap;">短期</span>
+      <button onclick="adjustMA(-1)" style="flex:0 0 30px; width:30px; padding:6px 0; box-sizing:border-box; background:#eee;">－</button>
+      <input type="number" id="ma-short-val" value="4" style="width:46px; box-sizing:border-box; text-align:center; border:1px solid #ccc; font-size:1em; padding:5px 2px;" onchange="saveMAPrefs(); updateAllMA()">
+      <button onclick="adjustMA(1)" style="flex:0 0 30px; width:30px; padding:6px 0; box-sizing:border-box; background:#eee;">＋</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:4px;">
+      <span style="font-weight:bold; white-space:nowrap;">中期</span>
+      <button onclick="adjustMidMA(-1)" style="flex:0 0 30px; width:30px; padding:6px 0; box-sizing:border-box; background:#eee;">－</button>
+      <input type="number" id="ma-mid-val" value="8" style="width:46px; box-sizing:border-box; text-align:center; border:1px solid #ccc; font-size:1em; padding:5px 2px;" onchange="saveMAPrefs(); updateAllMA()">
+      <button onclick="adjustMidMA(1)" style="flex:0 0 30px; width:30px; padding:6px 0; box-sizing:border-box; background:#eee;">＋</button>
+    </div>
+  </div>
+
+  <!-- 足種切替 + 水平線（全幅固定バー・1段） -->
+  <div id="tf-bar">
+    <button id="btn-daily" class="active-mode" onclick="changeTimeframe('daily')">日足</button>
+    <button id="btn-weekly" onclick="changeTimeframe('weekly')">週足</button>
+    <button id="btn-monthly" onclick="changeTimeframe('monthly')">月足</button>
+    <span style="font-weight:bold; font-size:0.72em; white-space:nowrap; margin-left:4px;">水平線</span>
+    <button id="btn-hline-on" onclick="setHlineMode(true)" style="flex:0 0 auto; min-height:32px; padding:4px 8px; font-size:0.75em; background:#e91e8c; color:white; border:none; border-radius:3px;">ON</button>
+    <button id="btn-hline-off" onclick="setHlineMode(false)" style="flex:0 0 auto; min-height:32px; padding:4px 6px; font-size:0.75em; background:#757575; color:white; border:none; border-radius:3px;">消去</button>
+    <span id="hline-status" style="font-size:0.7em; color:#888; white-space:nowrap;">OFF</span>
+  </div>
+
+  <div id="panels-row">
+  <!-- ========== 左パネル ========== -->
+  <div class="panel-half" id="left-panel">
+
+    <div class="lp-scroll">
+
+    <!-- 1. 銘柄読込 -->
+    <div class="section">
+      <div style="display:flex; flex-direction: column; gap:4px;">
+        <div class="ticker-search-wrap">
+          <input type="search" id="ticker-search" placeholder="🔍 名前・よみ・コード" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
+          <div id="ticker-results" class="ticker-results"></div>
+        </div>
+        <select id="ticker-select" onchange="pickTicker(this.value)"></select>
+        <div style="display:flex; gap:4px;">
+          <input type="text" id="ticker-input" value="7203" style="flex: 1; text-align:center;">
+          <button class="btn-nav" onclick="fetchData()" style="flex: 1; padding: 0;">読込</button>
+          <button class="btn-nav" onclick="removeCurrentTicker()" style="flex: 1; padding: 0;">外す</button>
+        </div>
+      </div>
+      <div id="status-display" style="font-size: 0.65em; color: #666; margin-top:2px;">銘柄を選択</div>
+    </div>
+
+    <!-- 6. ポジション -->
+    <div class="section">
+      <div class="section-title">ポジション</div>
+      <table class="pos-table">
+        <tr><th style="color:blue">売玉</th><th>平均</th><th style="color:red">買玉</th><th>平均</th></tr>
+        <tr><td id="short-qty">0</td><td id="short-avg">-</td><td id="long-qty">0</td><td id="long-avg">-</td></tr>
+      </table>
+    </div>
+
+    <!-- クイックセーブ -->
+    <div class="section" style="border: 2px solid #4caf50;">
+      <div class="section-title" style="color:#2e7d32;">クイックセーブ</div>
+      <div class="btn-row">
+        <button class="btn-nav" onclick="quickSave(false, this)">新規保存</button>
+        <button class="btn-save" onclick="quickSave(true, this)">上書き</button>
+      </div>
+      <select id="save-list" style="font-size:0.75em; padding:4px; margin:2px 0 4px;"></select>
+      <div class="btn-row" style="margin-bottom:0;">
+        <button class="btn-nav" style="background:#2196f3" onclick="quickLoad()">読込</button>
+        <button class="btn-reset" style="width:auto; margin-top:0; font-size:0.75em;" onclick="deleteSave()">削除</button>
+        <button class="btn-reset" style="width:auto; margin-top:0; font-size:0.75em; background:#b71c1c;" onclick="deleteAllSaves()">全削除</button>
+      </div>
+    </div>
+    </div>
+
+    <div class="lp-foot">
+
+    <!-- 4. 経過日数 -->
+    <div class="section">
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span style="font-weight:bold; font-size:0.75em; white-space:nowrap;">経過:</span>
+        <span id="entry-day-count" style="font-weight:bold; font-size:0.8em; color:#999; flex-grow:1;">- 日目</span>
+        <button id="btn-entry-back" class="btn-nav" onclick="goToEntryDay()"
+                style="flex:none; padding:5px 8px; font-size:0.7em; border-radius:3px;">初日に戻る</button>
+      </div>
+    </div>
+
+    <!-- 5. 損益（2行コンパクト版） -->
+    <div class="section">
+  <div style="display:flex; align-items:center; gap:6px;">
+    <span style="font-size:0.7em; color:#666; font-weight:bold; white-space:nowrap;">累計</span>
+    <div id="total-profit" class="stat-val"
+         style="font-size:0.80em; text-align:left; flex:1 1 0; min-width:0; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:red;">0 円</div>
+    <button class="btn-reset" style="flex:none; padding:4px 8px; font-size:0.7em; width:auto; margin:0;" onclick="resetProfit()">リセット</button>
+  </div>
+  <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+    <div id="unrealized-profit" style="font-size:0.80em;">含み: 0 円</div>
+    <div id="last-profit" style="flex-grow:1; text-align:right; font-size:0.75em;"></div>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+  <!-- ========== 右パネル ========== -->
+  <div class="panel-half" id="right-panel">
+
+    <div class="rp-scroll">
+
+    <!-- 1. 操作（チャート移動） -->
+    <div class="section">
+  <div class="btn-row" style="margin-bottom:4px;">
+    <button onclick="moveDay(-1)">←戻る</button>
+    <button class="btn-nav" onclick="moveDay(1)" style="flex:1.5;">翌日→</button>
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px; margin-bottom:3px;">
+    <button onclick="moveJump(-60)" style="padding: 2px 0; line-height: 1.8; height: auto; font-size: 0.75em;">3ヶ月戻</button>
+    <button onclick="moveJump(60)" style="padding: 2px 0; line-height: 1.8; height: auto; font-size: 0.75em;">3ヶ月進</button>
+  </div>
+  <div class="btn-row" style="margin-bottom:0;">
+    <button style="background:#eee; font-size:0.7em; padding: 2px 0; line-height: 1.8; height: auto;" onclick="moveJump(-999999)">最古</button>
+    <button style="background:#eee; font-size:0.7em; padding: 2px 0; line-height: 1.8; height: auto;" onclick="moveJump(999999)">最新</button>
+  </div>
+</div>
+
+    <!-- 2. 日足週足月足切替 + 表示数変更（統合） -->
+    <div class="section" style="padding: 4px 6px;">
+  <div style="font-size: 0.75em; display:flex; align-items:center; gap:4px;">
+    <span style="font-weight:bold; white-space:nowrap;">表示数:</span>
+    <button onclick="adjustViewRange(-10)" style="padding: 2px; flex: 0 0 38px; background: #eee; height: 22px; line-height: 1;">－10</button>
+    <input type="number" id="view-range-val" value="40"
+      style="flex-grow:1; min-width:0; text-align: center; border: 1px solid #ccc; font-size: 1em; padding: 1px 0; height: 20px;"
+      onchange="updateViewRange()">
+    <button onclick="adjustViewRange(10)" style="padding: 2px; flex: 0 0 38px; background: #eee; height: 22px; line-height: 1;">＋10</button>
+  </div>
+</div>
+
+    <!-- ログ -->
+    <div id="log-area"></div>
+    </div>
+
+    <div class="rp-foot">
+
+    <!-- 3. 玉操作 -->
+    <div class="section">
+  <div class="btn-row">
+    <button class="btn-sell" onclick="addPosition('short')" style="padding: 2px 0; line-height: 1.8; height: auto;">売 追加</button>
+    <button class="btn-buy" onclick="addPosition('long')" style="padding: 2px 0; line-height: 1.8; height: auto;">買 追加</button>
+  </div>
+  <div class="btn-row">
+    <button class="btn-close-sell" onclick="closeOne('short')" style="padding: 2px 0; line-height: 1.8; height: auto;">売 決済</button>
+    <button class="btn-close-buy" onclick="closeOne('long')" style="padding: 2px 0; line-height: 1.8; height: auto;">買 決済</button>
+  </div>
+  <button onclick="closeAll()" style="width:100%; margin-top:3px; padding:8px; font-size:0.75em; background:#333; color:white; box-shadow: 0 -2px 4px rgba(0,0,0,0.15);">全ポジション一括決済</button>
+</div>
+
+
+    </div>
+  </div>
+  </div>
+</div>
+</template>
+
+<script>
+// ===== 端末判定（PC / スマホ）と画面の組み立て =====
+// URLの末尾に ?mode=pc / ?mode=mobile を付けると強制切替できます
+const _modeParam = new URLSearchParams(location.search).get('mode');
+const IS_MOBILE = _modeParam === 'mobile' ? true : _modeParam === 'pc' ? false :
+  (window.matchMedia('(max-width: 820px)').matches || /iPhone|iPod|Android.+Mobile/.test(navigator.userAgent));
+
+// 端末ごとに変える設定
+const DEVICE = IS_MOBILE
+  ? { viewRange: 40, viewMax: 500,  hitPx: 12, hlineFont: 9,  maWidth: { ma20: 3,   ma60: 2,   ma100: 2   } }
+  : { viewRange: 80, viewMax: 1000, hitPx: 6,  hlineFont: 10, maWidth: { ma20: 3.5, ma60: 2.5, ma100: 2.5 } };
+
+// お気に入り銘柄 [コード, PC用の名前, スマホ用の名前]
+const TICKERS = [["1306", "TOPIX連動ETF", "TOPIX連動ETF"],
+  ["9202", "ANA HD(全日本空輸)", "ANA HD"],
+  ["7606", "ユナイテッドアローズ", "ユナイテッドアローズ"],
+  ["8111", "ゴールドウイン", "ゴールドウイン"],
+  ["2181", "パーソルHD(テンプ)", "パーソルHD"],
+  ["9020", "JR東日本", "JR東日本"],
+  ["9501", "東京電力HD", "東京電力HD"],
+  ["2282", "日本ハム", "日本ハム"],
+  ["7762", "シチズン時計", "シチズン時計"],
+  ["6758", "ソニーG", "ソニーG"],
+  ["6323", "ローツェ", "ローツェ"],
+  ["9104", "商船三井", "商船三井"],
+  ["9101", "日本郵船", "日本郵船"],
+  ["3861", "王子製紙", "王子製紙"],
+  ["8273", "イズミ", "イズミ"],
+  ["2121", "MIXI(ミクシィ)", "MIXI"],
+  ["2267", "ヤクルト", "ヤクルト"],
+  ["4661", "オリエンタルランド", "オリエンタルランド"],
+  ["3092", "ZOZO(スタートトゥデイ)", "ZOZO"],
+  ["8439", "東京センチュリー", "東京センチュリー"],
+  ["1928", "積水ハウス", "積水ハウス"],
+  ["2206", "江崎グリコ", "江崎グリコ"],
+  ["7741", "HOYA", "HOYA"],
+  ["7751", "キヤノン", "キヤノン"],
+  ["7296", "エフ・シー・シー", "エフ・シー・シー"],
+  ["2337", "いちご(アセットマネジ)", "いちご"],
+  ["6302", "住友重機械工業", "住友重機械工業"],
+  ["1721", "コムシスHD", "コムシスHD"],
+  ["8609", "岡三証券HD", "岡三証券HD"],
+  ["3288", "オープンハウスG", "オープンハウスG"],
+  ["5631", "日本製鋼所", "日本製鋼所"],
+  ["2768", "双日HD(ニチメン日商岩井)", "双日HD"],
+  ["1570", "日経平均レバレッジETF", "日経レバ"],
+  ["3880", "大王製紙", "大王製紙"],
+  ["2593", "伊藤園", "伊藤園"],
+  ["4004", "レゾナックHD(昭和電工)", "レゾナックHD"],
+  ["9989", "サンドラッグ", "サンドラッグ"],
+  ["3962", "チェンジHD", "チェンジHD"],
+  ["6954", "ファナック", "ファナック"],
+  ["6479", "ミネベアミツミ", "ミネベア"],
+  ["3436", "SUMCO", "SUMCO"],
+  ["2897", "日清食品HD", "日清食品HD"],
+  ["3382", "セブン&アイHD", "セブン&アイ"],
+  ["6506", "安川電機", "安川電機"],
+  ["5406", "神戸製鋼所", "神戸製鋼所"],
+  ["4751", "サイバーエージェント", "サイバーエージェント"],
+  ["6920", "レーザーテック", "レーザーテック"],
+  ["7951", "ヤマハ", "ヤマハ"],
+  ["1720", "東急建設", "東急建設"],
+  ["9984", "ソフトバンクグループ", "ソフトバンクG"],
+  ["6383", "ダイフク", "ダイフク"],
+  ["6594", "ニデック(日本電産)", "ニデック"],
+  ["9432", "NTT", "NTT"],
+  ["9433", "KDDI", "KDDI"],
+  ["3778", "さくらインターネット", "さくらインターネット"],
+  ["4911", "資生堂", "資生堂"],
+  ["3407", "旭化成工業", "旭化成"],
+  ["7974", "任天堂", "任天堂"],
+  ["8595", "ジャフコG", "ジャフコG"],
+  ["9001", "東武鉄道", "東武鉄道"],
+  ["7003", "三井E&S(三井造船)", "三井E&S"],
+  ["3349", "コスモス薬品", "コスモス薬品"],
+  ["1719", "安藤・間(ハザマ)", "安藤間"],
+  ["6857", "アドバンテスト", "アドバンテスト"],
+  ["4755", "楽天G", "楽天G"],
+  ["4452", "花王", "花王"],
+  ["4613", "関西ペイント", "関西ペイント"],
+  ["2670", "エービーシー・マート", "ABCマート"],
+  ["7272", "ヤマハ発動機", "ヤマハ発"],
+  ["7752", "リコー", "リコー"],
+  ["9531", "東京ガス", "東京ガス"],
+  ["4578", "大塚HD", "大塚HD"],
+  ["8002", "丸紅", "丸紅"],
+  ["8035", "東京エレクトロン", "東エレク"],
+  ["4182", "三菱ガス化学", "三菱ガス化"],
+  ["3132", "マクニカ(富士エレ)HD", "マクニカ"],
+  ["5401", "日本製鉄(新日鐵)", "日本製鉄"],
+  ["5411", "JFE HD", "JFE HD"],
+  ["8424", "芙蓉総合リース", "芙蓉リース"],
+  ["8411", "みずほFG", "みずほFG"],
+  ["4063", "信越化学", "信越化学"],
+  ["6301", "コマツ", "コマツ"],
+  ["4612", "日本ペイントHD", "日本ペイント"],
+  ["1963", "日揮HD", "日揮HD"],
+  ["6997", "日本ケミコン", "日ケミコン"],
+  ["7205", "日野自動車", "日野自"],
+  ["1801", "大成建設", "大成建設"],
+  ["1803", "清水建設", "清水建設"],
+  ["2914", "JT", "JT"],
+  ["4502", "武田薬品", "武田薬品"],
+  ["8923", "トーセイ(東誠不動産)", "トーセイ"],
+  ["4901", "富士フイルムHD", "富士フイルム"],
+  ["6146", "ディスコ", "ディスコ"],
+  ["6501", "日立製作所", "日立"],
+  ["6701", "NEC(日本電気)", "NEC"],
+  ["6861", "キーエンス", "キーエンス"],
+  ["7011", "三菱重工業", "三菱重工"],
+  ["7012", "川崎重工業", "川崎重工"],
+  ["7013", "IHI(石川島播磨重工業)", "IHI"],
+  ["7203", "トヨタ自動車", "トヨタ自動車"],
+  ["8001", "伊藤忠商事", "伊藤忠"],
+  ["8031", "三井物産", "三井物産"],
+  ["8058", "三菱商事", "三菱商事"],
+  ["8802", "三菱地所", "三菱地所"],
+  ["9503", "関西電力", "関西電力"],
+  ["9513", "J-POWER", "J-POWER"],
+  ["9759", "NSD(日本システムディベ)", "NSD"],
+  ["9983", "ファーストリテイリング", "ファストリ"]];
+
+document.body.classList.add(IS_MOBILE ? 'mobile' : 'pc');
+document.body.appendChild(document.getElementById(IS_MOBILE ? 'tpl-mobile' : 'tpl-pc').content.cloneNode(true));
+const TICKER_YOMI = {"1306": "とぴっくす", "9202": "えーえぬえー ぜんにっくう", "7606": "ゆないてっどあろーず", "8111": "ごーるどういん", "2181": "ぱーそる てんぷ", "9020": "じぇいあーるひがしにほん", "9501": "とうきょうでんりょく", "2282": "にっぽんはむ にほんはむ", "7762": "しちずん", "6758": "そにー", "6323": "ろーつぇ", "9104": "しょうせんみつい", "9101": "にっぽんゆうせん にほんゆうせん", "3861": "おうじせいし", "8273": "いずみ", "2121": "みくしぃ", "2267": "やくると", "4661": "おりえんたるらんど", "3092": "ぞぞ すたーととぅでい", "8439": "とうきょうせんちゅりー", "1928": "せきすいはうす", "2206": "えざきぐりこ", "7741": "ほーや", "7751": "きやのん", "7296": "えふしーしー", "2337": "いちご", "6302": "すみともじゅうきかい", "1721": "こむしす", "8609": "おかさん", "3288": "おーぷんはうす", "5631": "にほんせいこうしょ", "2768": "そうじつ にちめん", "1570": "にっけいれば", "3880": "だいおうせいし", "2593": "いとうえん", "4004": "れぞなっく しょうわでんこう", "9989": "さんどらっぐ", "3962": "ちぇんじ", "6954": "ふぁなっく", "6479": "みねべあみつみ", "3436": "さむこ", "2897": "にっしんしょくひん", "3382": "せぶんあんどあい", "6506": "やすかわでんき", "5406": "こうべせいこうしょ", "4751": "さいばーえーじぇんと", "6920": "れーざーてっく", "7951": "やまは", "1720": "とうきゅうけんせつ", "9984": "そふとばんくぐるーぷ", "6383": "だいふく", "6594": "にでっく にほんでんさん", "9432": "えぬてぃーてぃー", "9433": "けーでぃーでぃーあい", "3778": "さくらいんたーねっと", "4911": "しせいどう", "3407": "あさひかせい", "7974": "にんてんどう", "8595": "じゃふこ", "9001": "とうぶてつどう", "7003": "みついいーあんどえす みついぞうせん", "3349": "こすもすやくひん", "1719": "あんどうはざま", "6857": "あどばんてすと", "4755": "らくてん", "4452": "かおう", "4613": "かんさいぺいんと", "2670": "えーびーしーまーと", "7272": "やまははつどうき", "7752": "りこー", "9531": "とうきょうがす", "4578": "おおつか", "8002": "まるべに", "8035": "とうきょうえれくとろん", "4182": "みつびしがすかがく", "3132": "まくにか ふじえれ", "5401": "にっぽんせいてつ しんにってつ", "5411": "じぇいえふいー", "8424": "ふようそうごうりーす", "8411": "みずほ", "4063": "しんえつかがく", "6301": "こまつ", "4612": "にっぽんぺいんと", "1963": "にっき", "6997": "にっぽんけみこん", "7205": "ひのじどうしゃ", "1801": "たいせいけんせつ", "1803": "しみずけんせつ", "2914": "じぇいてぃー にほんたばこ", "4502": "たけだやくひん", "8923": "とーせい", "4901": "ふじふいるむ", "6146": "でぃすこ", "6501": "ひたちせいさくしょ", "6701": "えぬいーしー にほんでんき", "6861": "きーえんす", "7011": "みつびしじゅうこう", "7012": "かわさきじゅうこう", "7013": "あいえいちあい いしかわじま", "7203": "とよたじどうしゃ", "8001": "いとうちゅうしょうじ", "8031": "みついぶっさん", "8058": "みつびししょうじ", "8802": "みつびしじしょ", "9503": "かんさいでんりょく", "9513": "じぇいぱわー でんげんかいはつ", "9759": "えぬえすでぃー", "9983": "ふぁーすとりていりんぐ ゆにくろ"};
+
+// ★ 銘柄一覧（端末ごとに保存）
+const MY_TICKERS_KEY = 'tradeToolPrefs_myTickers';   // 画面から追加した銘柄 [{code,name,yomi}]
+const HIDDEN_TICKERS_KEY = 'tradeToolPrefs_hiddenTickers'; // 一覧から外した標準銘柄 [code]
+const RECENT_TICKERS_KEY = 'tradeToolPrefs_recentTickers'; // 最近使った銘柄 [code]
+const RECENT_MAX = 10;
+const GYO = [['あ行','ぁあぃいぅうゔぇえぉお'],['か行','かがきぎくぐけげこご'],['さ行','さざしじすずせぜそぞ'],
+             ['た行','ただちぢっつづてでとど'],['な行','なにぬねの'],['は行','はばぱひびぴふぶぷへべぺほぼぽ'],
+             ['ま行','まみむめも'],['や行','ゃやゅゆょよ'],['ら行','らりるれろ'],['わ行','ゎわをん']];
+const askedAddTickers = new Set();
+
+function lsGetJson(k, def) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? def : v; } catch (e) { return def; } }
+function lsSetJson(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function normText(x) {
+  return String(x || '').normalize('NFKC').toLowerCase()
+    .replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60))
+    .replace(/[\s・()（）&＆\-]/g, '');
+}
+function getAllTickers() {
+  const hidden = new Set(lsGetJson(HIDDEN_TICKERS_KEY, []));
+  const mine = lsGetJson(MY_TICKERS_KEY, []);
+  const mineCodes = new Set(mine.map(m => m.code));
+  const list = [];
+  TICKERS.forEach(t => {
+    if (hidden.has(t[0]) || mineCodes.has(t[0])) return;
+    list.push({ code: t[0], name: t[1], short: t[2], yomi: TICKER_YOMI[t[0]] || '' });
+  });
+  mine.forEach(m => list.push({ code: m.code, name: m.name, short: m.name, yomi: m.yomi || '' }));
+  return list;
+}
+function findTicker(code, includeHidden) {
+  const hit = getAllTickers().find(t => t.code === code);
+  if (hit || !includeHidden) return hit;
+  const t = TICKERS.find(x => x[0] === code);
+  return t ? { code: t[0], name: t[1], short: t[2], yomi: TICKER_YOMI[t[0]] || '' } : null;
+}
+function tickerLabel(t) { return t.code + ' ' + (IS_MOBILE ? t.short : t.name); }
+function gyoOf(yomi) {
+  const c = normText(yomi).charAt(0);
+  for (const g of GYO) if (g[1].indexOf(c) >= 0) return g[0];
+  return '英数・その他';
+}
+function rebuildTickerSelect() {
+  const sel = document.getElementById('ticker-select');
+  if (!sel) return;
+  sel.innerHTML = '';
+  sel.add(new Option(IS_MOBILE ? '-- 銘柄を選択 --' : '-- 銘柄を選択（最近使った銘柄・五十音順）--', ''));
+  const recent = lsGetJson(RECENT_TICKERS_KEY, []);
+  if (recent.length) {
+    const og = document.createElement('optgroup');
+    og.label = '★ 最近使った銘柄';
+    recent.forEach(code => {
+      const t = findTicker(code, true);
+      og.appendChild(new Option(t ? tickerLabel(t) : code, code));
+    });
+    sel.appendChild(og);
+  }
+  const all = getAllTickers().sort((a, b) => normText(a.yomi || a.name).localeCompare(normText(b.yomi || b.name), 'ja'));
+  const groups = {};
+  all.forEach(t => { const g = t.yomi ? gyoOf(t.yomi) : '英数・その他'; (groups[g] = groups[g] || []).push(t); });
+  GYO.map(g => g[0]).concat(['英数・その他']).forEach(g => {
+    if (!groups[g]) return;
+    const og = document.createElement('optgroup');
+    og.label = g;
+    groups[g].forEach(t => og.appendChild(new Option(tickerLabel(t), t.code)));
+    sel.appendChild(og);
+  });
+  const cur = document.getElementById('ticker-input');
+  if (cur) sel.value = cur.value.trim();
+  if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+}
+function pickTicker(code) {
+  if (!code) return;
+  document.getElementById('ticker-input').value = code;
+  const box = document.getElementById('ticker-search');
+  if (box) { box.value = ''; box.blur(); }
+  hideTickerResults();
+  fetchData();
+}
+function searchTickers(q) {
+  const nq = normText(q);
+  if (!nq) return [];
+  const scored = [];
+  getAllTickers().forEach(t => {
+    const keys = [t.code, t.name, t.short].concat(String(t.yomi).split(/\s+/)).map(normText);
+    let best = -1;
+    keys.forEach(k => { if (!k) return; const i = k.indexOf(nq); if (i === 0) best = Math.max(best, 2); else if (i > 0) best = Math.max(best, 1); });
+    if (best >= 0) scored.push([best, t]);
+  });
+  scored.sort((a, b) => b[0] - a[0] || normText(a[1].yomi || a[1].name).localeCompare(normText(b[1].yomi || b[1].name), 'ja'));
+  return scored.slice(0, 30).map(x => x[1]);
+}
+let tickerResultCodes = [];
+function onTickerSearch() {
+  const box = document.getElementById('ticker-search');
+  const res = document.getElementById('ticker-results');
+  if (!box || !res) return;
+  const q = box.value.trim();
+  if (!q) { hideTickerResults(); return; }
+  const hits = searchTickers(q);
+  tickerResultCodes = hits.map(t => t.code);
+  res.innerHTML = '';
+  hits.forEach((t, i) => {
+    const d = document.createElement('div');
+    d.textContent = t.code + ' ' + t.name;
+    if (i === 0) d.className = 'active';
+    d.onmousedown = (e) => { e.preventDefault(); pickTicker(t.code); };
+    res.appendChild(d);
+  });
+  const code = q.normalize('NFKC').replace(/\s/g, '');
+  if (/^[0-9][0-9A-Za-z]{3}$/.test(code) && !hits.some(t => t.code === code.toUpperCase())) {
+    const d = document.createElement('div');
+    d.textContent = 'コード ' + code.toUpperCase() + ' を読み込む（一覧にない銘柄）';
+    d.onmousedown = (e) => { e.preventDefault(); pickTicker(code.toUpperCase()); };
+    res.appendChild(d);
+    tickerResultCodes.push(code.toUpperCase());
+  }
+  if (!res.children.length) {
+    const d = document.createElement('div');
+    d.className = 'tr-note';
+    d.textContent = '見つかりません（4桁のコードを入力すると読み込めます）';
+    res.appendChild(d);
+  }
+  res.style.display = 'block';
+}
+function onTickerSearchKey(e) {
+  if (e.key === 'Enter') { e.preventDefault(); if (tickerResultCodes.length) pickTicker(tickerResultCodes[0]); }
+  else if (e.key === 'Escape') { hideTickerResults(); }
+}
+function hideTickerResults() { const r = document.getElementById('ticker-results'); if (r) r.style.display = 'none'; }
+
+// 銘柄を表示できたときに呼ぶ：最近使った銘柄に記録し、一覧にない銘柄なら追加を聞く
+function onTickerLoaded(code) {
+  if (!code) return;
+  let recent = lsGetJson(RECENT_TICKERS_KEY, []).filter(c => c !== code);
+  recent.unshift(code);
+  lsSetJson(RECENT_TICKERS_KEY, recent.slice(0, RECENT_MAX));
+  if (!findTicker(code, false) && !askedAddTickers.has(code)) {
+    askedAddTickers.add(code);
+    const base = findTicker(code, true);
+    const name = prompt(code + ' は銘柄一覧にありません。一覧に追加しますか？\n銘柄名を入力してください（例：村田製作所）\n追加しない場合は「キャンセル」', base ? base.name : '');
+    if (name && name.trim()) {
+      const yomi = prompt('「' + name.trim() + '」のよみがなを入力してください（ひらがな。例：むらた）\n五十音の並びと検索に使います。空欄なら「英数・その他」に入ります', base ? base.yomi : '');
+      const mine = lsGetJson(MY_TICKERS_KEY, []).filter(m => m.code !== code);
+      mine.push({ code: code, name: name.trim(), yomi: normText(yomi || '') ? String(yomi).trim() : '' });
+      lsSetJson(MY_TICKERS_KEY, mine);
+      lsSetJson(HIDDEN_TICKERS_KEY, lsGetJson(HIDDEN_TICKERS_KEY, []).filter(c => c !== code));
+    }
+  }
+  rebuildTickerSelect();
+}
+function removeCurrentTicker() {
+  const code = document.getElementById('ticker-input').value.trim();
+  const t = findTicker(code, true);
+  if (!code) return;
+  if (!confirm((t ? code + ' ' + t.name : code) + ' を一覧から外しますか？\n（最近使った銘柄からも消えます。保存済みの株価データは残ります）')) return;
+  lsSetJson(MY_TICKERS_KEY, lsGetJson(MY_TICKERS_KEY, []).filter(m => m.code !== code));
+  if (TICKERS.some(x => x[0] === code)) {
+    const h = lsGetJson(HIDDEN_TICKERS_KEY, []);
+    if (h.indexOf(code) < 0) h.push(code);
+    lsSetJson(HIDDEN_TICKERS_KEY, h);
+  }
+  lsSetJson(RECENT_TICKERS_KEY, lsGetJson(RECENT_TICKERS_KEY, []).filter(c => c !== code));
+  askedAddTickers.add(code);
+  rebuildTickerSelect();
+}
+rebuildTickerSelect();
+</script>
+
+<script>
+let dailyData = [];
+let weeklyData = [];
+let monthlyData = [];
+let timeframe = 'daily';
+let currentDailyIndex = 0;
+let totalProfit = 0;
+let positions = { long: [], short: [] };
+let tradeHistory = [];
+let FIXED_VIEW_RANGE = DEVICE.viewRange;
+
+// ★ MAの初期値（記憶した値がないときに使う）
+const DEFAULT_MA_SHORT = 4;
+const DEFAULT_MA_MID = 8;
+
+// ★ 水平線管理
+let hlines = [];
+let hlineMode = false;
+const HLINE_COLOR = '#4caf50';
+let hlineDragIdx = null;
+let hlineDidDrag = false;
+let hlineDownOnLine = false;
+const HLINE_HIT_PX = DEVICE.hitPx;
+
+/** 水平線モード切替 */
+function setHlineMode(on) {
+  if (on) {
+    hlineMode = true;
+    document.body.classList.add('hline-mode');
+    document.getElementById('btn-hline-on').classList.add('hline-mode-active');
+    document.getElementById('hline-status').textContent = 'ON';
+    document.getElementById('hline-status').style.color = '#e91e8c';
+  } else {
+    hlineMode = false;
+    hlines = [];
+    document.body.classList.remove('hline-mode');
+    document.getElementById('btn-hline-on').classList.remove('hline-mode-active');
+    document.getElementById('hline-status').textContent = 'OFF';
+    document.getElementById('hline-status').style.color = '#888';
+    hideHlineGuide();
+    drawChart();
+  }
+}
+
+/** Y軸座標変換ユーティリティ */
+function getYAxisInfo() {
+  const chartDiv = document.getElementById('chart');
+  const fl = chartDiv._fullLayout;
+  if (!fl) return null;
+  const ya = fl.yaxis;
+  const r = ya._rl || ya.range;
+  return {
+    ya,
+    plotTopClient: chartDiv.getBoundingClientRect().top + ya._offset,
+    plotLen: ya._length,
+    yTop: Math.max(r[0], r[1]),
+    yBottom: Math.min(r[0], r[1])
+  };
+}
+function pixelToDataY(clientY) {
+  const info = getYAxisInfo();
+  if (!info) return null;
+  if (clientY < info.plotTopClient || clientY > info.plotTopClient + info.plotLen) return null;
+  const ratio = (clientY - info.plotTopClient) / info.plotLen;
+  return info.yTop - ratio * (info.yTop - info.yBottom);
+}
+function dataYToContainerTop(yVal) {
+  const info = getYAxisInfo();
+  if (!info) return null;
+  const containerTop = document.getElementById('main-container').getBoundingClientRect().top;
+  const ratio = (info.yTop - yVal) / (info.yTop - info.yBottom);
+  return (info.plotTopClient - containerTop) + ratio * info.plotLen;
+}
+function getChartYFromClick(e) {
+  const y = pixelToDataY(e.clientY);
+  return y === null ? null : Math.round(y);
+}
+
+/** 水平線ヒット判定 */
+function findNearestHlineIdx(yVal) {
+  const info = getYAxisInfo();
+  if (!info || hlines.length === 0) return -1;
+  const tol = (info.yTop - info.yBottom) * HLINE_HIT_PX / info.plotLen;
+  let bestIdx = -1, bestDist = tol;
+  hlines.forEach((h, i) => {
+    const d = Math.abs(h.y - yVal);
+    if (d <= bestDist) { bestDist = d; bestIdx = i; }
+  });
+  return bestIdx;
+}
+
+/** ガイド表示／非表示 */
+function showHlineGuide(yVal, isExisting) {
+  const top = dataYToContainerTop(yVal);
+  if (top === null) { hideHlineGuide(); return; }
+  const g = document.getElementById('hline-guide');
+  const lab = document.getElementById('hline-guide-label');
+  g.style.display = 'block';
+  g.style.top = top + 'px';
+  g.style.borderTopStyle = isExisting ? 'solid' : 'dashed';
+  g.style.borderTopColor = isExisting ? '#ff9800' : '#e91e8c';
+  lab.style.display = 'block';
+  lab.style.top = top + 'px';
+  lab.textContent = Math.round(yVal).toLocaleString();
+  lab.style.background = isExisting ? '#ff9800' : '#e91e8c';
+}
+function hideHlineGuide() {
+  const g = document.getElementById('hline-guide');
+  const lab = document.getElementById('hline-guide-label');
+  if (g) g.style.display = 'none';
+  if (lab) lab.style.display = 'none';
+}
+
+/** ドラッグ中の軽量再描画（shapes / annotations のみ更新） */
+function relayoutHlineShapesOnly() {
+  const shapes = hlines.map(h => ({
+    type: 'line', xref: 'paper', yref: 'y',
+    x0: 0, x1: 1, y0: h.y, y1: h.y,
+    line: { color: HLINE_COLOR, width: 1.5, dash: 'solid' }
+  }));
+  const chartDiv = document.getElementById('chart');
+  const cur = (chartDiv.layout && chartDiv.layout.annotations) || [];
+  // hline用の注釈は xref:'paper', x:1.01 で識別
+  const tradeAnns = cur.filter(a => !(a.xref === 'paper' && a.x === 1.01));
+  const hlineAnns = hlines.map(h => ({
+    xref: 'paper', yref: 'y',
+    x: 1.01, y: h.y,
+    text: h.y.toLocaleString(),
+    showarrow: false,
+    font: { size: DEVICE.hlineFont, color: HLINE_COLOR },
+    xanchor: 'left'
+  }));
+  Plotly.relayout('chart', { shapes: shapes, annotations: tradeAnns.concat(hlineAnns) });
+}
+
+if (!IS_MOBILE) {
+// ★ オーバーレイのイベント登録（クリック=新規追加 / ホバー=ガイド / ドラッグ=移動）
+const _hlineOverlay = document.getElementById('hline-overlay');
+
+_hlineOverlay.addEventListener('mousemove', function(e) {
+  if (!hlineMode) return;
+  if (hlineDragIdx !== null) {
+    const y = pixelToDataY(e.clientY);
+    if (y === null) return;
+    hlines[hlineDragIdx].y = Math.round(y);
+    hlineDidDrag = true;
+    showHlineGuide(hlines[hlineDragIdx].y, true);
+    relayoutHlineShapesOnly();
+    return;
+  }
+  const y = pixelToDataY(e.clientY);
+  if (y === null) { hideHlineGuide(); _hlineOverlay.classList.remove('hover-line'); return; }
+  const idx = findNearestHlineIdx(y);
+  if (idx !== -1) {
+    _hlineOverlay.classList.add('hover-line');
+    showHlineGuide(hlines[idx].y, true);
+  } else {
+    _hlineOverlay.classList.remove('hover-line');
+    showHlineGuide(Math.round(y), false);
+  }
+});
+
+_hlineOverlay.addEventListener('mouseleave', function() {
+  if (hlineDragIdx === null) hideHlineGuide();
+});
+
+_hlineOverlay.addEventListener('mousedown', function(e) {
+  if (!hlineMode) return;
+  if (e.button !== 0) return;
+  hlineDidDrag = false;
+  hlineDownOnLine = false;
+  const y = pixelToDataY(e.clientY);
+  if (y === null) return;
+  const idx = findNearestHlineIdx(y);
+  if (idx !== -1) {
+    hlineDragIdx = idx;
+    hlineDownOnLine = true;
+    e.preventDefault();
+  }
+});
+
+window.addEventListener('mouseup', function() {
+  if (hlineDragIdx !== null) {
+    hlineDragIdx = null;
+    drawChart();
+  }
+});
+
+_hlineOverlay.addEventListener('click', function(e) {
+  if (!hlineMode) return;
+  if (hlineDidDrag || hlineDownOnLine) {
+    hlineDidDrag = false;
+    hlineDownOnLine = false;
+    return;
+  }
+  const y = getChartYFromClick(e);
+  if (y === null) return;
+  hlines.push({ y: y });
+  drawChart();
+});
+} else {
+// ★ 統一ポインタイベント（マウス＋タッチ両対応）
+const overlay = document.getElementById('hline-overlay');
+
+function getEventClientY(e) {
+  if (e.touches && e.touches.length > 0) return e.touches[0].clientY;
+  if (e.changedTouches && e.changedTouches.length > 0) return e.changedTouches[0].clientY;
+  return e.clientY;
+}
+
+function onPointerDown(e) {
+  if (!hlineMode) return;
+  hlineDidDrag = false;
+  hlineDownOnLine = false;
+  const y = pixelToDataY(getEventClientY(e));
+  if (y === null) return;
+  const idx = findNearestHlineIdx(y);
+  if (idx !== -1) {
+    hlineDragIdx = idx;
+    hlineDownOnLine = true;
+    showHlineGuide(hlines[idx].y, true);
+    e.preventDefault();
+  } else {
+    // 新規候補位置にガイド表示
+    showHlineGuide(Math.round(y), false);
+  }
+}
+
+function onPointerMove(e) {
+  if (!hlineMode) return;
+  const clientY = getEventClientY(e);
+
+  // ① 既存線ドラッグ中
+  if (hlineDragIdx !== null) {
+    const y = pixelToDataY(clientY);
+    if (y === null) return;
+    hlines[hlineDragIdx].y = Math.round(y);
+    hlineDidDrag = true;
+    showHlineGuide(hlines[hlineDragIdx].y, true);
+    relayoutHlineShapesOnly();
+    e.preventDefault();
+    return;
+  }
+
+  // ② タッチで新規ライン位置プレビュー中（指のスライドにガイドを追従）
+  if (e.type === 'touchmove') {
+    const y = pixelToDataY(clientY);
+    if (y === null) { hideHlineGuide(); return; }
+    showHlineGuide(Math.round(y), false);
+    e.preventDefault();
+    return;
+  }
+
+  // ③ マウスホバー時のガイド
+  if (e.type === 'mousemove') {
+    const y = pixelToDataY(clientY);
+    if (y === null) { hideHlineGuide(); overlay.classList.remove('hover-line'); return; }
+    const idx = findNearestHlineIdx(y);
+    if (idx !== -1) {
+      overlay.classList.add('hover-line');
+      showHlineGuide(hlines[idx].y, true);
+    } else {
+      overlay.classList.remove('hover-line');
+      showHlineGuide(Math.round(y), false);
+    }
+  }
+}
+
+function onPointerUp(e) {
+  if (!hlineMode) {
+    hlineDragIdx = null;
+    return;
+  }
+  if (hlineDragIdx !== null) {
+    hlineDragIdx = null;
+    hideHlineGuide();
+    drawChart();
+    return;
+  }
+  // ドラッグでなく、線上でもなければ → 新規追加（タップ／クリック扱い）
+  if (!hlineDidDrag && !hlineDownOnLine) {
+    const y = pixelToDataY(getEventClientY(e));
+    if (y !== null) {
+      hlines.push({ y: Math.round(y) });
+      hideHlineGuide();
+      drawChart();
+    }
+  }
+  hlineDidDrag = false;
+  hlineDownOnLine = false;
+}
+
+// マウス
+overlay.addEventListener('mousedown', onPointerDown);
+overlay.addEventListener('mousemove', onPointerMove);
+window.addEventListener('mouseup', onPointerUp);
+overlay.addEventListener('mouseleave', () => { if (hlineDragIdx === null) hideHlineGuide(); });
+
+// タッチ
+overlay.addEventListener('touchstart', onPointerDown, { passive: false });
+overlay.addEventListener('touchmove', onPointerMove, { passive: false });
+overlay.addEventListener('touchend', function(e) {
+  e.preventDefault();
+  onPointerUp(e);
+}, { passive: false });
+overlay.addEventListener('touchcancel', () => { hlineDragIdx = null; hideHlineGuide(); });
+}
+
+// ===== 株価の取得（新GAS・差分取得・端末内保存・エラー対策） =====
+// ↓↓ 新しいGASのウェブアプリURL（/exec で終わるもの）を貼り付けてください ↓↓
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxHZanPeRHCnEgiDTRTCEfMM8Qbypm8v8Tc3wR1LAMN20Y-p2Ip0uGnnedjVsRjkvhg/exec";
+const GAS_KEY_STORAGE = 'tradeToolPrefs_gasKey';
+const PX_DB_NAME = 'tradeToolPriceDB';
+const FULL_REFRESH_DAYS = 7;   // この日数が経ったら全期間を取り直す
+const KEEP_YEARS = 10;         // 端末に残す年数
+let fetchToken = 0;
+
+function getGasKey(forceAsk) {
+  let k = '';
+  try { k = localStorage.getItem(GAS_KEY_STORAGE) || ''; } catch (e) {}
+  if (!k || forceAsk) {
+    const msg = forceAsk ? 'アクセスキーが違います。もう一度入力してください'
+                         : 'GASのアクセスキーを入力してください\n（この端末では最初の1回だけです）';
+    const input = prompt(msg, '');
+    if (!input) return '';
+    k = input.trim();
+    try { localStorage.setItem(GAS_KEY_STORAGE, k); } catch (e) {}
+  }
+  return k;
+}
+
+// --- 端末内の株価保存（IndexedDB：容量が大きく10年分×多銘柄でも入る） ---
+function pxDb() {
+  return new Promise((res, rej) => {
+    if (!window.indexedDB) return rej(new Error('no indexedDB'));
+    const r = indexedDB.open(PX_DB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('prices');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function pxGet(ticker) {
+  try {
+    const db = await pxDb();
+    return await new Promise(res => {
+      const q = db.transaction('prices', 'readonly').objectStore('prices').get(ticker);
+      q.onsuccess = () => res(q.result || null);
+      q.onerror = () => res(null);
+    });
+  } catch (e) { return null; }
+}
+async function pxPut(ticker, rec) {
+  try {
+    const db = await pxDb();
+    await new Promise(res => {
+      const tx = db.transaction('prices', 'readwrite');
+      tx.objectStore('prices').put(rec, ticker);
+      tx.oncomplete = res; tx.onerror = res; tx.onabort = res;
+    });
+  } catch (e) {}
+}
+
+function jstDayKey(ts) { return new Date((ts + 9 * 3600) * 1000).toISOString().slice(0, 10); }
+
+// --- GASを呼ぶ（待ち時間の上限＋最大3回の自動再試行） ---
+async function callGas(ticker, range, timeoutMs) {
+  let key = getGasKey(false);
+  if (!key) { const e = new Error('アクセスキーが未入力です'); e.fatal = true; throw e; }
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const ctrl = window.AbortController ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+    try {
+      const url = GAS_URL + '?ticker=' + encodeURIComponent(ticker) + '&range=' + range +
+                  '&key=' + encodeURIComponent(key) + '&_=' + Date.now();
+      const resp = await fetch(url, ctrl ? { signal: ctrl.signal } : {});
+      const j = await resp.json();
+      if (j.error === 'AUTH') {
+        key = getGasKey(true);
+        if (!key) { const e = new Error('アクセスキーが違います'); e.fatal = true; throw e; }
+        continue;
+      }
+      if (j.error === 'NOT_FOUND' || j.error === 'BAD_REQUEST') { const e = new Error(j.message || '銘柄が見つかりません'); e.fatal = true; throw e; }
+      if (j.error) throw new Error(j.message || j.error);
+      if (!j.t || !j.t.length) throw new Error('データが空です');
+      return j;
+    } catch (e) {
+      if (e.fatal) throw e;
+      lastErr = (e.name === 'AbortError') ? new Error('時間切れ（' + Math.round(timeoutMs / 1000) + '秒）') : e;
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+  throw lastErr || new Error('取得失敗');
+}
+
+function recFromGas(j) { return { t: j.t.slice(), o: j.o.slice(), h: j.h.slice(), l: j.l.slice(), c: j.c.slice() }; }
+
+// 保存データに新しいデータをつなげる（同じ日は新しい方を採用、10年より古い分は削除）
+function mergeRec(base, add) {
+  const map = new Map();
+  [base, add].forEach(r => {
+    if (!r || !r.t) return;
+    r.t.forEach((ts, i) => map.set(jstDayKey(ts), [ts, r.o[i], r.h[i], r.l[i], r.c[i]]));
+  });
+  const cutoff = Date.now() / 1000 - KEEP_YEARS * 365.25 * 86400;
+  const rows = [...map.values()].filter(x => x[0] >= cutoff).sort((a, b) => a[0] - b[0]);
+  return { t: rows.map(x => x[0]), o: rows.map(x => x[1]), h: rows.map(x => x[2]), l: rows.map(x => x[3]), c: rows.map(x => x[4]) };
+}
+
+// 重なっている日の終値が1%以上違えば「ずれ」（株式分割など）と判断
+function isMismatch(base, add) {
+  const baseMap = new Map();
+  base.t.forEach((ts, i) => baseMap.set(jstDayKey(ts), base.c[i]));
+  const lastKey = jstDayKey(base.t[base.t.length - 1]);   // 前回の最終日は場中の途中値の可能性があるので除外
+  for (let i = 0; i < add.t.length; i++) {
+    const k = jstDayKey(add.t[i]);
+    if (k === lastKey || !baseMap.has(k)) continue;
+    const a = baseMap.get(k), b = add.c[i];
+    if (a == null || b == null || !a) continue;
+    if (Math.abs(a - b) / Math.abs(a) > 0.01) return true;
+  }
+  return false;
+}
+
+// 保存形式 → チャート用の日足データ
+//  ① 1〜3日だけ極端に飛んでいる値（Yahooのデータ不具合）を前後に合わせて直す
+//  ② 急落後もその水準が続く場合だけを「分割」とみなして過去分を補正
+function repairOutliers(arr) {
+  const MAXRUN = 3;
+  const inBand = r => r >= 0.3 && r <= 3.3;
+  for (let i = 1; i < arr.length - 1; i++) {
+    const prev = arr[i - 1].close;
+    if (inBand(arr[i].close / prev)) continue;
+    let e = i;
+    while (e - i + 1 < MAXRUN && e + 1 < arr.length && !inBand(arr[e + 1].close / prev)) e++;
+    if (e + 1 >= arr.length) break;                 // 最新日まで続く場合は判断しない
+    const next = arr[e + 1].close;
+    const back = next / prev;
+    if (back < 0.7 || back > 1.43) continue;       // 元の水準に戻らない → 分割の可能性（②で判断）
+    let sum = 0;
+    for (let x = i; x <= e; x++) sum += arr[x].close;
+    const ref = (prev + next) / 2;
+    const ratio = ref / (sum / (e - i + 1));
+    const k = ratio >= 1 ? Math.round(ratio) : 1 / Math.round(1 / ratio);
+    const useK = Math.abs(ratio / k - 1) < 0.15;    // 10倍・1/10などきれいな倍率なら正しい値に戻せる
+    for (let x = i; x <= e; x++) {
+      ['open', 'high', 'low', 'close'].forEach(p => arr[x][p] = useK ? arr[x][p] * k : ref);
+    }
+    i = e;
+  }
+}
+
+function medianClose(arr, from, to) {
+  const v = [];
+  for (let x = Math.max(0, from); x <= Math.min(arr.length - 1, to); x++) v.push(arr[x].close);
+  v.sort((a, b) => a - b);
+  return v.length ? v[Math.floor(v.length / 2)] : NaN;
+}
+
+function buildDailyData(rec) {
+  const arr = rec.t.map((ts, i) => {
+    const dObj = new Date(ts * 1000);
+    const y = String(dObj.getFullYear()).substring(2);
+    const m = String(dObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dObj.getDate()).padStart(2, '0');
+    const c = rec.c[i];
+    return {
+      date: `${y}-${m}-${d}`,
+      rawDate: dObj,
+      open:  rec.o[i] || c,
+      high:  rec.h[i] || c,
+      low:   rec.l[i] || c,
+      close: c
+    };
+  }).filter(d => d.close && !isNaN(d.close));
+
+  repairOutliers(arr);
+
+  for (let j = arr.length - 2; j >= 0; j--) {
+    if (arr[j + 1].close / arr[j].close < 0.3) {
+      const after = medianClose(arr, j + 1, j + 5);
+      const before = medianClose(arr, j - 4, j);
+      if (!(after / before < 0.3)) continue;        // すぐ戻っている＝分割ではない
+      const r = arr[j + 1].close / arr[j].close;
+      for (let k = 0; k <= j; k++) {
+        ['open', 'high', 'low', 'close'].forEach(p => arr[k][p] = arr[k][p] * r);
+      }
+    }
+  }
+
+  arr.forEach(d => {
+    d.open = Math.round(d.open); d.high = Math.round(d.high);
+    d.low = Math.round(d.low);   d.close = Math.round(d.close);
+  });
+  return arr;
+}
+
+// チャートに反映。keepPosition=true なら練習中の日付・売買記録をそのまま残す
+function applyDailyData(newData, keepPosition) {
+  if (!newData.length) return;
+  let curDate = null, wasLatest = true;
+  if (keepPosition && dailyData.length) {
+    curDate = dailyData[currentDailyIndex].date;
+    wasLatest = currentDailyIndex >= dailyData.length - 1;
+  }
+  dailyData = newData;
+  if (keepPosition && curDate && !wasLatest) {
+    const idx = dailyData.findIndex(d => d.date === curDate);
+    currentDailyIndex = idx >= 0 ? idx : dailyData.length - 1;
+  } else {
+    currentDailyIndex = dailyData.length - 1;
+  }
+  weeklyData  = aggregateData('weekly');
+  monthlyData = aggregateData('monthly');
+  if (!keepPosition) {
+    tradeHistory = [];
+    document.getElementById('log-area').innerHTML = "";
+  }
+  updateAllMA();
+  updateDisplay();
+}
+
+function doneMsg(ticker, kind, j) {
+  const last = dailyData.length ? dailyData[dailyData.length - 1].date : '';
+  let s = "読込完了(" + dailyData.length + "日分・" + kind + "・最終 " + last + "): " + ticker;
+  if (j && j.source === 'stale-cache') s += "（GAS側の前回データ）";
+  return s;
+}
+
+// 全期間の取得。初回はまず2年分をすぐ表示してから10年分を読み込む
+async function fullFetch(ticker, status, isCurrent, hasShown) {
+  if (!hasShown) {
+    const j2 = await callGas(ticker, '2y', 15000);
+    if (!isCurrent()) return;
+    const rec2 = mergeRec(null, recFromGas(j2));
+    rec2.lastFull = 0;               // まだ全期間ではない印
+    rec2.savedAt = Date.now();
+    await pxPut(ticker, rec2);
+    applyDailyData(buildDailyData(rec2), false);
+    status.innerText = "2年分を表示中… 10年分を読込中: " + ticker;
+  }
+  try {
+    const j = await callGas(ticker, '10y', 25000);
+    if (!isCurrent()) return;
+    const rec = mergeRec(null, recFromGas(j));
+    rec.lastFull = Date.now();
+    rec.savedAt = Date.now();
+    await pxPut(ticker, rec);
+    applyDailyData(buildDailyData(rec), true);
+    status.innerText = doneMsg(ticker, '全期間', j);
+  } catch (e) {
+    if (!isCurrent()) return;
+    if (!hasShown) {
+      status.innerText = "2年分のみ表示中（10年分の取得失敗: " + e.message + "）: " + ticker;
+      return;
+    }
+    throw e;
+  }
+}
+
+async function fetchData() {
+  const ticker = document.getElementById('ticker-input').value.trim();
+  const status = document.getElementById('status-display');
+  if (!ticker) return;
+  if (!GAS_URL || GAS_URL.indexOf('https://') !== 0) {
+    status.innerText = "エラー: GASのURLが未設定です";
+    return;
+  }
+  const myToken = ++fetchToken;
+  const isCurrent = () => myToken === fetchToken;   // 途中で別銘柄に切り替えたら古い結果は使わない
+
+  const cached = await pxGet(ticker);
+  const hasCache = !!(cached && cached.t && cached.t.length);
+  const now = Date.now();
+
+  // ① 端末に保存済みなら、まずそれをすぐ表示
+  if (hasCache) {
+    applyDailyData(buildDailyData(cached), false);
+    status.innerText = "保存データを表示中… 最新を確認中: " + ticker;
+    setTimeout(() => onTickerLoaded(ticker), 0);
+  } else {
+    status.innerText = "取得中…（初回）: " + ticker;
+  }
+
+  try {
+    const lastTs = hasCache ? cached.t[cached.t.length - 1] : 0;
+    const needFull = !hasCache || !cached.lastFull ||
+                     (now - cached.lastFull) > FULL_REFRESH_DAYS * 86400000 ||
+                     (now / 1000 - lastTs) > 25 * 86400;
+    if (needFull) {
+      await fullFetch(ticker, status, isCurrent, hasCache);
+      if (!hasCache && isCurrent() && dailyData.length) onTickerLoaded(ticker);
+      return;
+    }
+    // ② 差分取得（最近の数日分だけ）
+    const range = (now / 1000 - lastTs) <= 4 * 86400 ? '5d' : '1mo';
+    const j = await callGas(ticker, range, 12000);
+    if (!isCurrent()) return;
+    const add = recFromGas(j);
+    if (isMismatch(cached, add)) {
+      status.innerText = "データのずれを検出、全期間を取り直し中…: " + ticker;
+      await fullFetch(ticker, status, isCurrent, true);
+      return;
+    }
+    const merged = mergeRec(cached, add);
+    merged.lastFull = cached.lastFull;
+    merged.savedAt = now;
+    await pxPut(ticker, merged);
+    applyDailyData(buildDailyData(merged), true);
+    status.innerText = doneMsg(ticker, '差分更新', j);
+  } catch (e) {
+    if (!isCurrent()) return;
+    console.error(e);
+    if (hasCache) {
+      status.innerText = "前回データを表示中（取得失敗: " + e.message + "）: " + ticker;
+    } else {
+      status.innerText = "エラー: 取得失敗（" + e.message + "）";
+    }
+  }
+}
+
+function aggregateDataFromList(dataList, tf) {
+  let result = [];
+  let temp = null;
+  dataList.forEach((d, i) => {
+    let isNewPeriod = false;
+    if (!temp) {
+      isNewPeriod = true;
+    } else {
+      if (tf === 'weekly') {
+        let prevDate = dataList[i-1].rawDate;
+        if (d.rawDate.getDay() <= prevDate.getDay() || (d.rawDate - prevDate) > 518400000) isNewPeriod = true;
+      } else if (tf === 'monthly') {
+        if (d.rawDate.getMonth() !== dataList[i-1].rawDate.getMonth()) isNewPeriod = true;
+      }
+    }
+    if (isNewPeriod) {
+      if (temp) { temp.date = dataList[i-1].date; result.push(temp); }
+      temp = { ...d, originalDates: [d.date] };
+    } else {
+      temp.high = Math.max(temp.high, d.high);
+      temp.low  = Math.min(temp.low,  d.low);
+      temp.close = d.close;
+      temp.originalDates.push(d.date);
+    }
+  });
+  if (temp) { temp.date = dataList[dataList.length - 1].date; result.push(temp); }
+  return result;
+}
+
+function aggregateData(tf) {
+  let result = [];
+  let temp = null;
+  dailyData.forEach((d, i) => {
+    let isNewPeriod = false;
+    if (!temp) isNewPeriod = true;
+    else {
+      if (tf === 'weekly') {
+        let prevDate = dailyData[i-1].rawDate;
+        if (d.rawDate.getDay() <= prevDate.getDay() || (d.rawDate - prevDate) > 518400000) isNewPeriod = true;
+      } else if (tf === 'monthly') {
+        if (d.rawDate.getMonth() !== dailyData[i-1].rawDate.getMonth()) isNewPeriod = true;
+      }
+    }
+    if (isNewPeriod) {
+      if (temp) { temp.date = dailyData[i-1].date; result.push(temp); }
+      temp = { ...d, originalDates: [d.date] };
+    } else {
+      temp.high = Math.max(temp.high, d.high);
+      temp.low  = Math.min(temp.low,  d.low);
+      temp.close = d.close;
+      temp.originalDates.push(d.date);
+    }
+  });
+  if (temp) { temp.date = dailyData[dailyData.length - 1].date; result.push(temp); }
+  return result;
+}
+
+function calculateMA(arr) {
+  if (!arr.length) return;
+  const shortP = parseInt(document.getElementById('ma-short-val').value) || DEFAULT_MA_SHORT;
+  const midEl = document.getElementById('ma-mid-val');
+  const midP = midEl ? (parseInt(midEl.value) || DEFAULT_MA_MID) : DEFAULT_MA_MID;
+  const periods = { maShort: shortP, ma13: midP, ma20: 20, ma60: 60, ma100: 100, ma300: 300 };
+  arr.forEach((d, i) => {
+    for (let key in periods) {
+      const p = periods[key];
+      if (i < p - 1) d[key] = null;
+      else {
+        let sum = 0;
+        for (let j = 0; j < p; j++) sum += arr[i - j].close;
+        d[key] = sum / p;
+      }
+    }
+  });
+}
+
+function updateAllMA() {
+  calculateMA(dailyData);
+  drawChart();
+}
+
+function adjustMA(n) {
+  const input = document.getElementById('ma-short-val');
+  input.value = Math.max(1, (parseInt(input.value) || 0) + n);
+  saveMAPrefs();
+  updateAllMA();
+}
+
+function adjustMidMA(n) {
+  const input = document.getElementById('ma-mid-val');
+  input.value = Math.max(1, (parseInt(input.value) || 0) + n);
+  saveMAPrefs();
+  updateAllMA();
+}
+
+// ★ MAの値を記憶（端末ごと）。±ボタン・手入力のときだけ保存し、
+//   クイックセーブ読込で切り替わった値は記憶しない（一時的な扱い）
+const MA_PREF_KEY = 'tradeToolPrefs_ma';
+function saveMAPrefs() {
+  try {
+    const s = parseInt(document.getElementById('ma-short-val').value);
+    const m = parseInt(document.getElementById('ma-mid-val').value);
+    if (!(s >= 1) || !(m >= 1)) return;
+    localStorage.setItem(MA_PREF_KEY, JSON.stringify({ maShort: s, maMid: m }));
+  } catch (e) { console.warn('MA設定の保存に失敗', e); }
+}
+function loadMAPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(MA_PREF_KEY) || 'null');
+    if (!p) return;
+    if (p.maShort >= 1) document.getElementById('ma-short-val').value = p.maShort;
+    if (p.maMid >= 1) document.getElementById('ma-mid-val').value = p.maMid;
+  } catch (e) { console.warn('MA設定の読込に失敗', e); }
+}
+
+function adjustViewRange(n) {
+  const input = document.getElementById('view-range-val');
+  input.value = Math.max(10, Math.min(DEVICE.viewMax, (parseInt(input.value) || DEVICE.viewRange) + n));
+  updateViewRange();
+}
+
+function updateViewRange() {
+  FIXED_VIEW_RANGE = parseInt(document.getElementById('view-range-val').value) || DEVICE.viewRange;
+  drawChart();
+}
+
+function changeTimeframe(tf) {
+  timeframe = tf;
+  document.getElementById('btn-daily').className  = (tf === 'daily')   ? 'active-mode' : '';
+  document.getElementById('btn-weekly').className = (tf === 'weekly')  ? 'active-mode' : '';
+  document.getElementById('btn-monthly').className= (tf === 'monthly') ? 'active-mode' : '';
+  drawChart();
+}
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') moveDay(1);
+  if (e.key === 'ArrowLeft')  moveDay(-1);
+});
+
+function moveDay(n) {
+  if (dailyData.length === 0) return;
+  currentDailyIndex = Math.max(0, Math.min(dailyData.length - 1, currentDailyIndex + n));
+  updateDisplay();
+}
+function moveJump(n) { moveDay(n); }
+function resetProfit() { totalProfit = 0; tradeHistory = []; updateDisplay(); }
+
+// ★ エントリー日インデックス取得
+function getEntryDayIndex() {
+  if (!tradeHistory || tradeHistory.length === 0) return -1;
+  let endIdx = tradeHistory.length - 1;
+  while (endIdx >= 0 && tradeHistory[endIdx].sQty === 0 && tradeHistory[endIdx].lQty === 0) {
+    endIdx--;
+  }
+  if (endIdx < 0) return -1;
+  let startIdx = endIdx;
+  while (startIdx > 0) {
+    const prev = tradeHistory[startIdx - 1];
+    if (prev.sQty === 0 && prev.lQty === 0) break;
+    startIdx--;
+  }
+  const entryDate = tradeHistory[startIdx].date;
+  return dailyData.findIndex(d => d.date === entryDate);
+}
+
+function goToEntryDay() {
+  const entryIdx = getEntryDayIndex();
+  if (entryIdx < 0) return;
+  currentDailyIndex = entryIdx;
+  updateDisplay();
+}
+
+function addPosition(type) {
+  if (dailyData.length === 0) return;
+  const price = dailyData[currentDailyIndex].close;
+  positions[type].push({ price: price, qty: 100 });
+  recordTradeHistory();
+  addLog(`${type === 'long' ? '買' : '売'}追加: ${price}円`, type === 'long' ? 'red' : 'blue');
+  updateDisplay();
+}
+
+function closeOne(type) {
+  if (positions[type].length === 0) return;
+  const currentPrice = dailyData[currentDailyIndex].close;
+  const p = positions[type].shift();
+  let profit = (type === 'long') ? (currentPrice - p.price) * p.qty : (p.price - currentPrice) * p.qty;
+  totalProfit += profit;
+  recordTradeHistory();
+  document.getElementById('last-profit').innerText = (IS_MOBILE ? "確定: " + profit.toLocaleString() + "円" : "確定損益: " + profit.toLocaleString() + " 円");
+  document.getElementById('last-profit').style.color = profit >= 0 ? "red" : "blue";
+  addLog(`${type === 'long' ? '買' : '売'}決済: ${currentPrice}円${IS_MOBILE ? '' : ' (損益:' + profit + ')'}`, 'black');
+  updateDisplay();
+}
+
+function closeAll() {
+  if (positions.long.length === 0 && positions.short.length === 0) return;
+  const currentPrice = dailyData[currentDailyIndex].close;
+  let profit = 0;
+  positions.long.forEach(p  => profit += (currentPrice - p.price) * p.qty);
+  positions.short.forEach(p => profit += (p.price - currentPrice) * p.qty);
+  totalProfit += profit;
+  positions = { long: [], short: [] };
+  recordTradeHistory();
+  document.getElementById('last-profit').innerText = (IS_MOBILE ? "一括: " + profit.toLocaleString() + "円" : "一括決済: " + profit.toLocaleString() + " 円");
+  document.getElementById('last-profit').style.color = profit >= 0 ? "red" : "blue";
+  addLog(`全決済: ${currentPrice}円${IS_MOBILE ? '' : ' (損益:' + profit + ')'}`, 'black');
+  updateDisplay();
+}
+
+function recordTradeHistory() {
+  const date = dailyData[currentDailyIndex].date;
+  const item = { date: date, sQty: positions.short.length * 100, lQty: positions.long.length * 100, high: dailyData[currentDailyIndex].high };
+  const idx = tradeHistory.findIndex(h => h.date === date);
+  if (idx > -1) tradeHistory[idx] = item; else tradeHistory.push(item);
+}
+
+function updateDisplay() {
+  if (dailyData.length === 0) return;
+  const curP = dailyData[currentDailyIndex].close;
+  const lQty = positions.long.length  * 100;
+  const sQty = positions.short.length * 100;
+  const lAvg = lQty > 0 ? Math.round(positions.long.reduce((s, p)  => s + p.price * p.qty, 0) / lQty) : "-";
+  const sAvg = sQty > 0 ? Math.round(positions.short.reduce((s, p) => s + p.price * p.qty, 0) / sQty) : "-";
+
+  let unrealized = 0;
+  positions.long.forEach(p  => unrealized += (curP - p.price) * p.qty);
+  positions.short.forEach(p => unrealized += (p.price - curP) * p.qty);
+
+  document.getElementById('long-qty').innerText  = lQty;
+  document.getElementById('long-avg').innerText  = lAvg;
+  document.getElementById('short-qty').innerText = sQty;
+  document.getElementById('short-avg').innerText = sAvg;
+  document.getElementById('total-profit').innerText = totalProfit.toLocaleString() + " 円";
+  document.getElementById('total-profit').style.color = totalProfit >= 0 ? "red" : "blue";
+
+  const unEl = document.getElementById('unrealized-profit');
+  unEl.innerText = "含み: " + unrealized.toLocaleString() + " 円";
+  unEl.style.color = unrealized >= 0 ? (unrealized === 0 ? "#666" : "red") : "blue";
+
+  // ★ エントリー日数表示
+  const entryIdx = getEntryDayIndex();
+  const entryEl  = document.getElementById('entry-day-count');
+  const entryBtn = document.getElementById('btn-entry-back');
+  if (entryIdx < 0) {
+    entryEl.textContent = '- 日目';
+    entryEl.style.color = '#999';
+    entryBtn.disabled = true;
+    entryBtn.style.opacity = '0.4';
+    entryBtn.style.cursor = 'not-allowed';
+  } else {
+    const count = currentDailyIndex - entryIdx + 1;
+    if (count >= 1) {
+      entryEl.textContent = count + ' 日目';
+      entryEl.style.color = '#e91e8c';
+    } else {
+      entryEl.textContent = '(エントリー前)';
+      entryEl.style.color = '#999';
+    }
+    entryBtn.disabled = false;
+    entryBtn.style.opacity = '1';
+    entryBtn.style.cursor = 'pointer';
+  }
+
+  drawChart();
+}
+
+function addLog(msg, color) {
+  const log = document.getElementById('log-area');
+  log.innerHTML = `<div style="color:${color}; margin-bottom:1px;">[${IS_MOBILE ? dailyData[currentDailyIndex].date.slice(5) : dailyData[currentDailyIndex].date}] ${msg}</div>` + log.innerHTML;
+}
+
+function drawChart() {
+  if (dailyData.length === 0) return;
+
+  const currentFullDaily = dailyData.slice(0, currentDailyIndex + 1);
+  let tempWeekly  = aggregateDataFromList(currentFullDaily, 'weekly');
+  let tempMonthly = aggregateDataFromList(currentFullDaily, 'monthly');
+  calculateMA(tempWeekly);
+  calculateMA(tempMonthly);
+
+  let targetData = (timeframe === 'weekly') ? tempWeekly : (timeframe === 'monthly') ? tempMonthly : currentFullDaily;
+
+  let targetDate = dailyData[currentDailyIndex].date;
+  let displayIndex = targetData.findIndex(d => {
+    if (timeframe === 'daily') return d.date === targetDate;
+    return d.originalDates.includes(targetDate);
+  });
+  if (displayIndex === -1) displayIndex = targetData.length - 1;
+
+  const startIdx = Math.max(0, displayIndex - FIXED_VIEW_RANGE + 1);
+  let viewData = JSON.parse(JSON.stringify(targetData.slice(startIdx, displayIndex + 1)));
+
+  if (timeframe !== 'daily' && viewData.length > 0) {
+    let currentBar = viewData[viewData.length - 1];
+    const startOfIdx = dailyData.findIndex(d => d.date === currentBar.originalDates[0]);
+    const currentPeriodDaily = dailyData.slice(startOfIdx, currentDailyIndex + 1);
+    currentBar.open  = currentPeriodDaily[0].open;
+    currentBar.high  = Math.max(...currentPeriodDaily.map(d => d.high));
+    currentBar.low   = Math.min(...currentPeriodDaily.map(d => d.low));
+    currentBar.close = dailyData[currentDailyIndex].close;
+  }
+  const dates = viewData.map(d => d.date);
+
+  const candle = {
+    x: dates, open: viewData.map(d => d.open), high: viewData.map(d => d.high),
+    low: viewData.map(d => d.low), close: viewData.map(d => d.close),
+    type: 'candlestick', name: timeframe.toUpperCase(),
+    increasing: { line: { color: '#ff5252' }, fillcolor: '#ff5252' },
+    decreasing: { line: { color: '#26a69a' }, fillcolor: '#26a69a' }
+  };
+
+  const traces = [candle];
+  const maConfigs = [
+    {key: 'maShort', name: document.getElementById('ma-short-val').value + 'MA', color: '#000',    width: 1.5},
+    {key: 'ma13',    name: (document.getElementById('ma-mid-val') ? document.getElementById('ma-mid-val').value : DEFAULT_MA_MID) + 'MA', color: '#9e9e9e', width: 1.5},
+    {key: 'ma20',    name: '20MA',  color: '#f44336', width: DEVICE.maWidth.ma20},
+    {key: 'ma60',    name: '60MA',  color: '#2196f3', width: DEVICE.maWidth.ma60},
+    {key: 'ma100',   name: '100MA', color: '#9c27b0', width: DEVICE.maWidth.ma100},
+    {key: 'ma300',   name: '300MA', color: '#f8bbd0', width: 1.5}
+  ];
+  maConfigs.forEach(m => {
+    traces.push({
+      x: dates, y: viewData.map(d => d[m.key]), name: m.name,
+      line: {color: m.color, width: m.width}, type: 'scatter', mode: 'lines', hoverinfo: 'skip'
+    });
+  });
+
+  // ★ 水平線
+  const hlineShapes = hlines.map(h => ({
+    type: 'line',
+    xref: 'paper', yref: 'y',
+    x0: 0, x1: 1,
+    y0: h.y, y1: h.y,
+    line: { color: HLINE_COLOR, width: 1.5, dash: 'solid' }
+  }));
+
+  const hlineAnnotations = hlines.map(h => ({
+    xref: 'paper', yref: 'y',
+    x: 1.01, y: h.y,
+    text: h.y.toLocaleString(),
+    showarrow: false,
+    font: { size: DEVICE.hlineFont, color: HLINE_COLOR },
+    xanchor: 'left'
+  }));
+
+  const layout = {
+    hoverlabel: {
+      bgcolor: 'rgba(255, 255, 255, 0.9)',
+      bordercolor: '#ccc',
+      font: { color: 'black', size: 12 }
+    },
+    autosize: IS_MOBILE ? true : undefined,
+    xaxis: IS_MOBILE ? {
+      type: 'category',
+      fixedrange: true,
+      tickmode: 'array',
+      tickvals: dates.filter((_, i) => i % 12 === 0),
+      ticktext: dates.filter((_, i) => i % 12 === 0).map(d => d.replace(/-/g, '/')),
+      tickangle: 0,
+      tickfont: { size: 9 },
+      rangeslider: { visible: false }
+    } : { type: 'category', fixedrange: true, tickangle: -60, tickfont: { size: 12, color: '#333' }, automargin: true, rangeslider: { visible: false } },
+    yaxis: IS_MOBILE
+      ? { side: 'right', fixedrange: true, gridcolor: '#eee', tickfont: { size: 10 } }
+      : { side: 'right', gridcolor: '#eee', fixedrange: true, automargin: true },
+    showlegend: true,
+    legend: IS_MOBILE
+      ? { orientation: 'h', x: 0, y: 1.15, font: {size: 10}, bgcolor: 'rgba(255,255,255,0.6)' }
+      : { x: 0, y: 1, font: {size: 11}, bgcolor: 'rgba(255,255,255,0.7)' },
+    margin: IS_MOBILE ? { t: 50, b: 30, l: 5, r: 45, pad: 0 } : { t: 30, b: 120, l: 10, r: 60 },
+    plot_bgcolor: '#fff',
+    shapes: hlineShapes,
+    annotations: [...hlineAnnotations]
+  };
+
+  tradeHistory.forEach(h => {
+    let isTarget = false;
+    let displayX = h.date;
+    if (timeframe === 'daily') {
+      isTarget = dates.includes(h.date);
+    } else {
+      let foundBar = viewData.find(vd => vd.originalDates.includes(h.date));
+      if (foundBar) { isTarget = true; displayX = foundBar.date; }
+    }
+    if (isTarget) {
+      layout.annotations.push({
+        x: displayX, y: h.high, xref: 'x', yref: 'y',
+        text: `${h.sQty/100}-${h.lQty/100}`,
+        showarrow: true, arrowhead: 2, arrowcolor: 'rgba(218,165,32,0.6)',
+        ax: 0, ay: -50, yshift: 5,
+        bgcolor: 'rgba(255,255,0,0.4)', bordercolor: 'rgba(255,215,0,0.8)',
+        font: { size: 11, weight: 'bold' }
+      });
+    }
+  });
+
+  Plotly.newPlot('chart', traces, layout, {responsive: true, displayModeBar: false});
+}
+
+// ===== クイックセーブ =====
+const SAVE_KEY_PREFIX = 'tradeToolSave_';
+
+function getSaves() {
+  let saves = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith(SAVE_KEY_PREFIX)) {
+      try { saves.push(JSON.parse(localStorage.getItem(key))); } catch(e) {}
+    }
+  }
+  return saves.sort((a, b) => b.timestamp - a.timestamp);
+}
+
+function updateSaveList() {
+  const list = document.getElementById('save-list');
+  list.innerHTML = '';
+  const saves = getSaves();
+  if (saves.length === 0) {
+    list.innerHTML = '<option value="">保存データなし</option>';
+    return;
+  }
+  saves.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.text = s.memo || s.date || '無題';
+    list.add(opt);
+  });
+}
+
+// ★ 保存名を自動生成： エントリー日_コード銘柄名_損益累計額円_日数日  (例: 18-03-27_4452花王_-42300円_37日)
+function buildAutoSaveName() {
+  // 銘柄コード＋名称（お気に入りリストにあれば名称も付与、手入力の場合はコードのみ）
+  const code = document.getElementById('ticker-input').value.trim();
+  const tk = findTicker(code, true);
+  const name = tk ? (IS_MOBILE ? tk.short : tk.name) : "";
+  const stockLabel = code + name;
+
+  // 短期MA・中期MA（例: 5MA_10MA）
+  const maSEl = document.getElementById('ma-short-val');
+  const maMEl = document.getElementById('ma-mid-val');
+  const maLabel = (maSEl && maSEl.value ? maSEl.value : DEFAULT_MA_SHORT) + 'MA_' + (maMEl && maMEl.value ? maMEl.value : DEFAULT_MA_MID) + 'MA';
+
+  // エントリー日 と 経過日数（右UIの「○日目」と同じロジック）
+  const entryIdx = getEntryDayIndex();
+  let entryDate = dailyData[currentDailyIndex].date;
+  let dayCount = 0;
+  if (entryIdx >= 0) {
+    entryDate = dailyData[entryIdx].date;
+    dayCount = currentDailyIndex - entryIdx + 1;
+    if (dayCount < 0) dayCount = 0;
+  }
+
+  // 損益累計額（カンマなし）
+  const profit = (typeof totalProfit !== 'undefined' ? totalProfit : 0);
+
+  return `${entryDate}_${stockLabel}_${maLabel}_${profit}円_${dayCount}日`;
+}
+
+function quickSave(isOverwrite, btnElement) {
+  if (!dailyData || dailyData.length === 0) {
+    return alert("チャートデータが読み込まれていません。");
+  }
+
+  try {
+    const memo = buildAutoSaveName();
+    const targetDate = dailyData[currentDailyIndex].date;
+    let saveId = SAVE_KEY_PREFIX + new Date().getTime();
+
+    if (isOverwrite) {
+      const list = document.getElementById('save-list');
+      if (!list.value) return alert("上書きするデータが選択されていません。");
+      saveId = list.value;
+      const existingStr = localStorage.getItem(saveId);
+      if (!existingStr) return alert("上書き対象のデータが見つかりません。");
+    }
+
+    const saveData = {
+      id: saveId,
+      timestamp: isOverwrite ? JSON.parse(localStorage.getItem(saveId)).timestamp : new Date().getTime(),
+      date: targetDate,
+      memo: memo,
+      maShort: document.getElementById('ma-short-val') ? document.getElementById('ma-short-val').value : DEFAULT_MA_SHORT,
+      maMid: document.getElementById('ma-mid-val') ? document.getElementById('ma-mid-val').value : DEFAULT_MA_MID,
+      viewRange: typeof FIXED_VIEW_RANGE !== 'undefined' ? FIXED_VIEW_RANGE : DEVICE.viewRange,
+      history: typeof tradeHistory !== 'undefined' ? tradeHistory : [],
+      pos: typeof positions !== 'undefined' ? positions : { long: [], short: [] },
+      profit: typeof totalProfit !== 'undefined' ? totalProfit : 0,
+      lines: typeof hlines !== 'undefined' ? hlines : []
+    };
+
+    localStorage.setItem(saveId, JSON.stringify(saveData));
+
+    updateSaveList();
+    document.getElementById('save-list').value = saveId;
+
+    if (btnElement) {
+      const originalText = btnElement.innerText;
+      btnElement.innerText = "保存完了！";
+      setTimeout(() => btnElement.innerText = originalText, 1500);
+    }
+
+  } catch (e) {
+    console.error("保存エラー:", e);
+    alert("保存に失敗しました。\n\n【考えられる原因】\n・ブラウザがシークレットモードである\n・ローカルファイル(file://)での保存が制限されている\n\nエラー詳細: " + e.message);
+  }
+}
+
+function quickLoad() {
+  const saveId = document.getElementById('save-list').value;
+  if (!saveId) return;
+
+  const s = JSON.parse(localStorage.getItem(saveId));
+  if (!s) return alert("データの読み込みに失敗しました。");
+
+  let targetDate = s.date;
+  if (s.history && s.history.length > 0) {
+    let entryIdx = -1;
+    const lastH = s.history[s.history.length - 1];
+    const isClosedOnSave = (lastH.sQty === 0 && lastH.lQty === 0);
+
+    for (let i = s.history.length - 1; i >= 0; i--) {
+      const h = s.history[i];
+      if (i === s.history.length - 1 && isClosedOnSave) continue;
+      if (h.sQty === 0 && h.lQty === 0) break;
+      entryIdx = i;
+    }
+
+    if (entryIdx !== -1) {
+      targetDate = s.history[entryIdx].date;
+    }
+  }
+
+  const idx = dailyData.findIndex(d => d.date === targetDate);
+  if (idx === -1) {
+    return alert(`現在のチャート上に開始日付（${targetDate}）が見つかりません。\nセーブ時と同じ銘柄・期間のCSVデータを読み込んでから実行してください。`);
+  }
+
+  currentDailyIndex = idx;
+  document.getElementById('ma-short-val').value = s.maShort || DEFAULT_MA_SHORT;
+  if (document.getElementById('ma-mid-val')) document.getElementById('ma-mid-val').value = s.maMid || DEFAULT_MA_MID;
+  document.getElementById('view-range-val').value = s.viewRange || DEVICE.viewRange;
+  FIXED_VIEW_RANGE = parseInt(s.viewRange || DEVICE.viewRange);
+
+  tradeHistory = s.history || [];
+  positions = s.pos || { long: [], short: [] };
+  totalProfit = s.profit || 0;
+  hlines = s.lines || [];
+
+  updateAllMA();
+  updateDisplay();
+}
+
+function deleteSave() {
+  const saveId = document.getElementById('save-list').value;
+  if (!saveId) return;
+
+  const s = JSON.parse(localStorage.getItem(saveId));
+
+  if (confirm(`以下のセーブデータを削除しますか？\n「${s.date} [${s.memo}]」`)) {
+    localStorage.removeItem(saveId);
+    updateSaveList();
+  }
+}
+
+function deleteAllSaves() {
+  if (!confirm('全セーブデータを削除しますか？')) return;
+  Object.keys(localStorage).filter(k => k.startsWith(SAVE_KEY_PREFIX)).forEach(k => localStorage.removeItem(k));
+  updateSaveList();
+}
+
+// ★ 起動時：記憶したMAを反映 → セーブ一覧を表示
+loadMAPrefs();
+updateSaveList();
+</script>
+</body>
+</html>
