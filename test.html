@@ -197,7 +197,10 @@ body.mobile #view-range-val {
   padding: 5px 5px !important;
 }
 /* ★ 銘柄検索 */
-.ticker-search-wrap { position: relative; }
+.ticker-row { position: relative; display: flex; gap: 2px; align-items: stretch; }
+.ticker-search-wrap { flex: 1 1 auto; min-width: 0; }
+#ticker-select.ticker-mini { flex: 0 0 44px; width: 44px !important; min-width: 44px; color: transparent; cursor: pointer; }
+#ticker-select.ticker-mini option, #ticker-select.ticker-mini optgroup { color: #000; }
 #ticker-search { width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px; }
 body.mobile #ticker-search { font-size: 16px; padding: 6px; }
 .ticker-results { display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 2000; background: #fff; border: 1px solid #bbb; border-radius: 3px; max-height: 260px; overflow-y: auto; box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
@@ -224,15 +227,17 @@ body.mobile .ticker-results div { padding: 10px 8px; font-size: 15px; }
   <!-- 銘柄選択 -->
   <div class="section">
     <div class="input-group">
-      <div class="ticker-search-wrap">
-        <input type="search" id="ticker-search" placeholder="🔍 名前・よみ・コードで検索" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
+      <div class="ticker-row">
+        <div class="ticker-search-wrap">
+          <input type="search" id="ticker-search" placeholder="🔍 名前・よみ・コードで検索" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
+        </div>
+        <select id="ticker-select" class="ticker-mini" title="一覧から選ぶ" onchange="pickTicker(this.value)"></select>
         <div id="ticker-results" class="ticker-results"></div>
       </div>
-      <select id="ticker-select" onchange="pickTicker(this.value)"></select>
       <div style="display:flex; gap:2px;">
         <input type="text" id="ticker-input" placeholder="コード" style="width: 70px;" value="7203">
-        <button class="btn-nav" onclick="fetchData()">WEB銘柄読込</button>
-        <button class="btn-nav" onclick="removeCurrentTicker()" title="表示中の銘柄を一覧から外す">一覧から外す</button>
+        <button class="btn-nav" onclick="fetchData()" style="flex:1;">更新</button>
+        <button class="btn-nav" onclick="removeCurrentTicker()" title="表示中の銘柄を一覧から外す" style="flex:1;">外す</button>
       </div>
     </div>
     <div id="status-display" style="font-size: 0.7em; color: #666;">銘柄を選択または入力</div>
@@ -422,14 +427,16 @@ body.mobile .ticker-results div { padding: 10px 8px; font-size: 15px; }
     <!-- 1. 銘柄読込 -->
     <div class="section">
       <div style="display:flex; flex-direction: column; gap:4px;">
-        <div class="ticker-search-wrap">
-          <input type="search" id="ticker-search" placeholder="🔍 名前・よみ・コード" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
+        <div class="ticker-row">
+          <div class="ticker-search-wrap">
+            <input type="search" id="ticker-search" placeholder="🔍 名前・よみ・コード" autocomplete="off" oninput="onTickerSearch()" onkeydown="onTickerSearchKey(event)" onfocus="onTickerSearch()" onblur="setTimeout(hideTickerResults, 200)">
+          </div>
+          <select id="ticker-select" class="ticker-mini" onchange="pickTicker(this.value)"></select>
           <div id="ticker-results" class="ticker-results"></div>
         </div>
-        <select id="ticker-select" onchange="pickTicker(this.value)"></select>
         <div style="display:flex; gap:4px;">
           <input type="text" id="ticker-input" value="7203" style="flex: 1; text-align:center;">
-          <button class="btn-nav" onclick="fetchData()" style="flex: 1; padding: 0;">読込</button>
+          <button class="btn-nav" onclick="fetchData()" style="flex: 1; padding: 0;">更新</button>
           <button class="btn-nav" onclick="removeCurrentTicker()" style="flex: 1; padding: 0;">外す</button>
         </div>
       </div>
@@ -745,6 +752,11 @@ function rebuildTickerSelect() {
   const cur = document.getElementById('ticker-input');
   if (cur) sel.value = cur.value.trim();
   if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+  const box = document.getElementById('ticker-search');
+  if (box && cur) {
+    const t = findTicker(cur.value.trim(), true);
+    box.placeholder = '🔍 ' + (t ? tickerLabel(t) : (cur.value.trim() || (IS_MOBILE ? '名前・よみ・コード' : '名前・よみ・コードで検索')));
+  }
 }
 function pickTicker(code) {
   if (!code) return;
