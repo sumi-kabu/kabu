@@ -764,21 +764,29 @@ function sortedTickers() {
   all.forEach(t => { const g = t.yomi ? gyoOf(t.yomi) : '英数・その他'; (groups[g] = groups[g] || []).push(t); });
   return GYO.map(g => g[0]).concat(['英数・その他']).reduce((a, g) => a.concat(groups[g] || []), []);
 }
-// ★ 銘柄送り：▼一覧の並びで前後の銘柄を表示する（n = -1:前 / 1:次）。端まで行ったら反対側に戻る
+// ★ 銘柄送りの順番：最近使った銘柄（起動時の並びで固定）→ 残りを名前順（重複なし）
+//   送るたびに履歴の並びが変わるため、履歴は起動時の並びを使う（開き直すと最新の履歴になる）
+let stepRecent = lsGetJson(RECENT_TICKERS_KEY, []).slice();
+function stepOrder() {
+  const head = stepRecent.slice();
+  const inHead = new Set(head);
+  return head.concat(sortedTickers().map(t => t.code).filter(c => !inHead.has(c)));
+}
+// ★ 銘柄送り：上の順番で前後の銘柄を表示する（n = -1:前 / 1:次）。端まで行ったら反対側に戻る
 function stepTicker(n) {
-  const list = sortedTickers();
+  const list = stepOrder();
   if (!list.length) return;
   const cur = document.getElementById('ticker-input').value.trim();
-  const i = list.findIndex(t => t.code === cur);
+  const i = list.indexOf(cur);
   const next = i < 0 ? (n > 0 ? 0 : list.length - 1) : (i + n + list.length) % list.length;
-  pickTicker(list[next].code);
+  pickTicker(list[next]);
 }
 function updateTickerStepPos() {
   const el = document.getElementById('ticker-step-pos');
   if (!el) return;
-  const list = sortedTickers();
+  const list = stepOrder();
   const cur = document.getElementById('ticker-input').value.trim();
-  const i = list.findIndex(t => t.code === cur);
+  const i = list.indexOf(cur);
   el.textContent = (i < 0 ? '-' : (i + 1)) + '/' + list.length;
 }
 function rebuildTickerSelect() {
@@ -934,9 +942,16 @@ function removeCurrentTicker() {
     lsSetJson(HIDDEN_TICKERS_KEY, h);
   }
   lsSetJson(RECENT_TICKERS_KEY, lsGetJson(RECENT_TICKERS_KEY, []).filter(c => c !== code));
+  stepRecent = stepRecent.filter(c => c !== code);
   askedAddTickers.add(code);
   rebuildTickerSelect();
 }
+// ★ 起動時の銘柄：履歴の一番上（最新）→ 履歴がなければ名前順の先頭
+(function () {
+  const first = stepOrder()[0];
+  const inp = document.getElementById('ticker-input');
+  if (first && inp) inp.value = first;
+})();
 rebuildTickerSelect();
 </script>
 
