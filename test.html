@@ -196,6 +196,11 @@ body.mobile #view-range-val {
   height: auto;
   padding: 5px 5px !important;
 }
+/* ★ 銘柄送り（前へ・次へ） */
+.ticker-step { display: flex; gap: 2px; align-items: stretch; }
+.ticker-step button { flex: 1 1 0; padding: 4px 0; }
+body.mobile .ticker-step button { padding: 6px 0; }
+.ticker-step-pos { flex: 0 0 auto; min-width: 48px; display: flex; align-items: center; justify-content: center; font-size: 0.75em; color: #555; }
 /* ★ 銘柄検索 */
 .ticker-row { position: relative; display: flex; gap: 2px; align-items: stretch; }
 .ticker-search-wrap { flex: 1 1 auto; min-width: 0; }
@@ -240,6 +245,11 @@ body.mobile .ticker-results div { padding: 8px 6px; font-size: 0.85em; }
         <input type="text" id="ticker-input" placeholder="コード" style="width: 70px;" value="7203">
         <button class="btn-nav" onclick="fetchData()" style="flex:1;">更新</button>
         <button class="btn-nav" onclick="removeCurrentTicker()" title="表示中の銘柄を一覧から外す" style="flex:1;">外す</button>
+      </div>
+      <div class="ticker-step">
+        <button class="btn-nav" onclick="stepTicker(-1)" title="一覧の前の銘柄（キーボードの ↑）">▲ 前の銘柄</button>
+        <span id="ticker-step-pos" class="ticker-step-pos">-</span>
+        <button class="btn-nav" onclick="stepTicker(1)" title="一覧の次の銘柄（キーボードの ↓）">次の銘柄 ▼</button>
       </div>
     </div>
     <div id="status-display" style="font-size: 0.7em; color: #666;">銘柄を選択または入力</div>
@@ -440,6 +450,11 @@ body.mobile .ticker-results div { padding: 8px 6px; font-size: 0.85em; }
           <input type="text" id="ticker-input" value="7203" style="flex: 1; text-align:center;">
           <button class="btn-nav" onclick="fetchData()" style="flex: 1; padding: 0;">更新</button>
           <button class="btn-nav" onclick="removeCurrentTicker()" style="flex: 1; padding: 0;">外す</button>
+        </div>
+        <div class="ticker-step">
+          <button class="btn-nav" onclick="stepTicker(-1)">▲ 前</button>
+          <span id="ticker-step-pos" class="ticker-step-pos">-</span>
+          <button class="btn-nav" onclick="stepTicker(1)">次 ▼</button>
         </div>
       </div>
       <div id="status-display" style="font-size: 0.65em; color: #666; margin-top:2px;">銘柄を選択</div>
@@ -742,6 +757,30 @@ function gyoOf(yomi) {
   for (const g of GYO) if (g[1].indexOf(c) >= 0) return g[0];
   return '英数・その他';
 }
+// ▼一覧と同じ並び（五十音順）。行ごとにまとめ直すので、▼一覧の表示順と一致させる
+function sortedTickers() {
+  const all = getAllTickers().sort((a, b) => normText(a.yomi || a.name).localeCompare(normText(b.yomi || b.name), 'ja'));
+  const groups = {};
+  all.forEach(t => { const g = t.yomi ? gyoOf(t.yomi) : '英数・その他'; (groups[g] = groups[g] || []).push(t); });
+  return GYO.map(g => g[0]).concat(['英数・その他']).reduce((a, g) => a.concat(groups[g] || []), []);
+}
+// ★ 銘柄送り：▼一覧の並びで前後の銘柄を表示する（n = -1:前 / 1:次）。端まで行ったら反対側に戻る
+function stepTicker(n) {
+  const list = sortedTickers();
+  if (!list.length) return;
+  const cur = document.getElementById('ticker-input').value.trim();
+  const i = list.findIndex(t => t.code === cur);
+  const next = i < 0 ? (n > 0 ? 0 : list.length - 1) : (i + n + list.length) % list.length;
+  pickTicker(list[next].code);
+}
+function updateTickerStepPos() {
+  const el = document.getElementById('ticker-step-pos');
+  if (!el) return;
+  const list = sortedTickers();
+  const cur = document.getElementById('ticker-input').value.trim();
+  const i = list.findIndex(t => t.code === cur);
+  el.textContent = (i < 0 ? '-' : (i + 1)) + '/' + list.length;
+}
 function rebuildTickerSelect() {
   const sel = document.getElementById('ticker-select');
   if (!sel) return;
@@ -757,7 +796,7 @@ function rebuildTickerSelect() {
     });
     sel.appendChild(og);
   }
-  const all = getAllTickers().sort((a, b) => normText(a.yomi || a.name).localeCompare(normText(b.yomi || b.name), 'ja'));
+  const all = sortedTickers();
   const groups = {};
   all.forEach(t => { const g = t.yomi ? gyoOf(t.yomi) : '英数・その他'; (groups[g] = groups[g] || []).push(t); });
   GYO.map(g => g[0]).concat(['英数・その他']).forEach(g => {
@@ -778,6 +817,7 @@ function rebuildTickerSelect() {
                     : code ? code + '（名前未登録）'
                     : (IS_MOBILE ? '名前・よみ・コード' : '名前・よみ・コードで検索');
   }
+  updateTickerStepPos();
 }
 function pickTicker(code) {
   if (!code) return;
@@ -785,6 +825,9 @@ function pickTicker(code) {
   const box = document.getElementById('ticker-search');
   if (box) { box.value = ''; box.blur(); }
   hideTickerResults();
+  const sel = document.getElementById('ticker-select');
+  if (sel) { sel.value = code; if (sel.selectedIndex < 0) sel.selectedIndex = 0; sel.blur(); }
+  updateTickerStepPos();
   fetchData();
 }
 function searchTickers(q) {
@@ -1669,6 +1712,14 @@ function changeTimeframe(tf) {
 }
 
 window.addEventListener('keydown', e => {
+  // ↑↓：銘柄送り（文字入力中・一覧を選択中は除く）
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    e.preventDefault();
+    stepTicker(e.key === 'ArrowDown' ? 1 : -1);
+    return;
+  }
   if (e.key === 'ArrowRight') moveDay(1);
   if (e.key === 'ArrowLeft')  moveDay(-1);
 });
