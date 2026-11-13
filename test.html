@@ -196,14 +196,14 @@ body.mobile #view-range-val {
   height: auto;
   padding: 5px 5px !important;
 }
+/* ★ お気に入りボタン */
+.fav-btn { font-size: 1.1em; line-height: 1; }
+.fav-btn.on { color: #ffd54f; }
 /* ★ 銘柄送り（前へ・次へ） */
 .ticker-step { display: flex; gap: 2px; align-items: stretch; }
 .ticker-step button { flex: 1 1 0; padding: 4px 0; }
 body.mobile .ticker-step button { padding: 6px 0; }
 .ticker-step-pos { flex: 0 0 auto; min-width: 48px; display: flex; align-items: center; justify-content: center; font-size: 0.75em; color: #555; }
-/* ★ お気に入り（星）ボタン */
-#btn-fav { font-size: 1.3em; line-height: 1; color: #999; background: #fff; border: 1px solid #999; }
-#btn-fav.on { color: #f5a800; background: #fff8e1; border-color: #f5a800; }
 /* ★ 銘柄検索 */
 .ticker-row { position: relative; display: flex; gap: 2px; align-items: stretch; }
 .ticker-search-wrap { flex: 1 1 auto; min-width: 0; }
@@ -245,9 +245,9 @@ body.mobile .ticker-results div { padding: 8px 6px; font-size: 0.85em; }
         <div id="ticker-results" class="ticker-results"></div>
       </div>
       <div style="display:flex; gap:2px;">
-        <input type="text" id="ticker-input" placeholder="コード" style="width: 70px;" value="7203" onkeydown="if(event.key==='Enter'){pickTicker(this.value.trim().toUpperCase());this.blur();}">
-        <button id="btn-fav" onclick="toggleFav()" title="お気に入りに追加（最大10個）" style="flex:1;">☆</button>
-        <button class="btn-nav" onclick="removeCurrentTicker()" title="表示中の銘柄を一覧から外す" style="flex:1;">外す</button>
+        <input type="text" id="ticker-input" placeholder="コード" style="width: 70px;" value="7203" enterkeyhint="go" autocomplete="off" onkeydown="onCodeKey(event)" onchange="onCodeChange()">
+        <button id="fav-btn" class="btn-nav fav-btn" onclick="toggleFavorite()" title="お気に入りに入れる／外す（最大10件）" style="flex:1;">☆</button>
+        <button class="btn-nav" onclick="removeCurrentTicker()" title="表示中の銘柄を銘柄一覧から外す" style="flex:1;">外す</button>
       </div>
       <div class="ticker-step">
         <button class="btn-nav" onclick="stepTicker(-1)" title="一覧の前の銘柄（キーボードの ↑）">▲ 前の銘柄</button>
@@ -450,8 +450,8 @@ body.mobile .ticker-results div { padding: 8px 6px; font-size: 0.85em; }
           <div id="ticker-results" class="ticker-results"></div>
         </div>
         <div style="display:flex; gap:4px;">
-          <input type="text" id="ticker-input" value="7203" style="flex: 1; text-align:center;" onkeydown="if(event.key==='Enter'){pickTicker(this.value.trim().toUpperCase());this.blur();}">
-          <button id="btn-fav" onclick="toggleFav()" style="flex: 1; padding: 0;">☆</button>
+          <input type="text" id="ticker-input" value="7203" style="flex: 1; text-align:center;" enterkeyhint="go" autocomplete="off" onkeydown="onCodeKey(event)" onchange="onCodeChange()">
+          <button id="fav-btn" class="btn-nav fav-btn" onclick="toggleFavorite()" style="flex: 1; padding: 0;">☆</button>
           <button class="btn-nav" onclick="removeCurrentTicker()" style="flex: 1; padding: 0;">外す</button>
         </div>
         <div class="ticker-step">
@@ -706,8 +706,11 @@ const TICKER_YOMI = {"1306": "とぴっくす", "9202": "えーえぬえー ぜ�
 // ★ 銘柄一覧（端末ごとに保存）
 const MY_TICKERS_KEY = 'tradeToolPrefs_myTickers';   // 画面から追加した銘柄 [{code,name,yomi}]
 const HIDDEN_TICKERS_KEY = 'tradeToolPrefs_hiddenTickers'; // 一覧から外した標準銘柄 [code]
-const FAV_TICKERS_KEY = 'tradeToolPrefs_favTickers'; // お気に入り銘柄 [code]（追加した順）
+const RECENT_TICKERS_KEY = 'tradeToolPrefs_recentTickers'; // 最近使った銘柄 [code]
+const RECENT_MAX = 10;
+const FAV_TICKERS_KEY = 'tradeToolPrefs_favTickers'; // ★ お気に入り [code]（入れた順）
 const FAV_MAX = 10;
+function getFavorites() { return lsGetJson(FAV_TICKERS_KEY, []); }
 const GYO = [['あ行','ぁあぃいぅうゔぇえぉお'],['か行','かがきぎくぐけげこご'],['さ行','さざしじすずせぜそぞ'],
              ['た行','ただちぢっつづてでとど'],['な行','なにぬねの'],['は行','はばぱひびぴふぶぷへべぺほぼぽ'],
              ['ま行','まみむめも'],['や行','ゃやゅゆょよ'],['ら行','らりるれろ'],['わ行','ゎわをん']];
@@ -767,12 +770,9 @@ function sortedTickers() {
   all.forEach(t => { const g = t.yomi ? gyoOf(t.yomi) : '英数・その他'; (groups[g] = groups[g] || []).push(t); });
   return GYO.map(g => g[0]).concat(['英数・その他']).reduce((a, g) => a.concat(groups[g] || []), []);
 }
-// ★ 銘柄送りの順番：お気に入り（起動時の並びで固定）→ 残りを名前順（重複なし）
-//   リストを送っている最中に星を付けても順番が変わらないよう、お気に入りは起動時の並びを使う
-//   （星を付け外しした結果は、開き直すと先頭の並びに反映される）
-let stepFavs = lsGetJson(FAV_TICKERS_KEY, []).slice();
+// ★ 銘柄送りの順番：お気に入り（入れた順）→ 残りを五十音順（重複なし）
 function stepOrder() {
-  const head = stepFavs.slice();
+  const head = getFavorites();
   const inHead = new Set(head);
   return head.concat(sortedTickers().map(t => t.code).filter(c => !inHead.has(c)));
 }
@@ -793,40 +793,12 @@ function updateTickerStepPos() {
   const i = list.indexOf(cur);
   el.textContent = (i < 0 ? '-' : (i + 1)) + '/' + list.length;
 }
-// ★ お気に入り（☆／★ボタン）：追加した順に並ぶ・最大 FAV_MAX 個。もう一度押すと外れる
-function getFavs() { return lsGetJson(FAV_TICKERS_KEY, []); }
-function updateFavButton() {
-  const b = document.getElementById('btn-fav');
-  const inp = document.getElementById('ticker-input');
-  if (!b || !inp) return;
-  const on = getFavs().indexOf(inp.value.trim()) >= 0;
-  b.textContent = on ? '★' : '☆';
-  b.classList.toggle('on', on);
-  b.title = on ? 'お気に入りから外す' : 'お気に入りに追加（最大' + FAV_MAX + '個）';
-}
-function toggleFav() {
-  const code = document.getElementById('ticker-input').value.trim();
-  if (!code) return;
-  const favs = getFavs();
-  const i = favs.indexOf(code);
-  if (i >= 0) {
-    favs.splice(i, 1);
-  } else {
-    if (favs.length >= FAV_MAX) {
-      alert('お気に入りは最大' + FAV_MAX + '個までです。\n不要な銘柄の星を押して外してから追加してください。');
-      return;
-    }
-    favs.push(code);
-  }
-  lsSetJson(FAV_TICKERS_KEY, favs);
-  rebuildTickerSelect();
-}
 function rebuildTickerSelect() {
   const sel = document.getElementById('ticker-select');
   if (!sel) return;
   sel.innerHTML = '';
   sel.add(new Option(IS_MOBILE ? '-- 銘柄を選択 --' : '-- 銘柄を選択（お気に入り・五十音順）--', ''));
-  const favs = getFavs();
+  const favs = getFavorites();
   if (favs.length) {
     const og = document.createElement('optgroup');
     og.label = '★ お気に入り（' + favs.length + '/' + FAV_MAX + '）';
@@ -858,7 +830,7 @@ function rebuildTickerSelect() {
                     : (IS_MOBILE ? '名前・よみ・コード' : '名前・よみ・コードで検索');
   }
   updateTickerStepPos();
-  updateFavButton();
+  updateFavBtn();
 }
 function pickTicker(code) {
   if (!code) return;
@@ -869,7 +841,7 @@ function pickTicker(code) {
   const sel = document.getElementById('ticker-select');
   if (sel) { sel.value = code; if (sel.selectedIndex < 0) sel.selectedIndex = 0; sel.blur(); }
   updateTickerStepPos();
-  updateFavButton();
+  updateFavBtn();
   fetchData();
 }
 function searchTickers(q) {
@@ -934,9 +906,12 @@ function onTickerSearchKey(e) {
 }
 function hideTickerResults() { const r = document.getElementById('ticker-results'); if (r) r.style.display = 'none'; }
 
-// 銘柄を表示できたときに呼ぶ：一覧にない銘柄なら追加を聞く
+// 銘柄を表示できたときに呼ぶ：最近使った銘柄に記録し、一覧にない銘柄なら追加を聞く
 function onTickerLoaded(code) {
   if (!code) return;
+  let recent = lsGetJson(RECENT_TICKERS_KEY, []).filter(c => c !== code);
+  recent.unshift(code);
+  lsSetJson(RECENT_TICKERS_KEY, recent.slice(0, RECENT_MAX));
   if (!findTicker(code, false) && !askedAddTickers.has(code)) {
     askedAddTickers.add(code);
     const base = findTicker(code, true);
@@ -961,25 +936,65 @@ function onTickerLoaded(code) {
   }
   rebuildTickerSelect();
 }
+// ★ お気に入り：☆を押すと入る（★）、もう一度押すと外れる
+function updateFavBtn() {
+  const code = (document.getElementById('ticker-input') || {}).value;
+  const on = !!code && getFavorites().indexOf(code.trim()) >= 0;
+  document.querySelectorAll('#fav-btn').forEach(b => {
+    b.textContent = on ? '★' : '☆';
+    b.classList.toggle('on', on);
+  });
+}
+function toggleFavorite() {
+  const code = document.getElementById('ticker-input').value.trim();
+  if (!code) return;
+  let favs = getFavorites();
+  if (favs.indexOf(code) >= 0) {
+    favs = favs.filter(c => c !== code);
+  } else {
+    if (favs.length >= FAV_MAX) {
+      alert('お気に入りは' + FAV_MAX + '件までです。\nどれかを外してから入れてください。\n（▼一覧の先頭からその銘柄を開き、★を押すと外れます）');
+      return;
+    }
+    favs.push(code);
+  }
+  lsSetJson(FAV_TICKERS_KEY, favs);
+  rebuildTickerSelect();
+}
+// コードを入力して Enter（iPhoneは「開く」）、または入力欄から離れたら読み込む
+function onCodeKey(e) { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }
+let lastLoadedCode = '';
+function onCodeChange() {
+  const code = document.getElementById('ticker-input').value.trim().toUpperCase();
+  if (!code || code === lastLoadedCode) return;
+  pickTicker(code);
+}
+// 他のアプリから戻ってきたとき（場中の確認用）、前回の読込から30秒以上たっていれば自動で最新にする
+let lastFetchAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (Date.now() - lastFetchAt < 30000) return;
+  if (typeof fetchData === 'function') fetchData();
+});
 function removeCurrentTicker() {
   const code = document.getElementById('ticker-input').value.trim();
   const t = findTicker(code, true);
   if (!code) return;
-  if (!confirm((t ? code + ' ' + t.name : code) + ' を一覧から外しますか？\n（お気に入りからも外れます。保存済みの株価データは残ります）')) return;
+  if (!confirm((t ? code + ' ' + t.name : code) + ' を銘柄一覧から外しますか？\n（お気に入りからも外れます。保存済みの株価データは残ります）')) return;
   lsSetJson(MY_TICKERS_KEY, lsGetJson(MY_TICKERS_KEY, []).filter(m => m.code !== code));
   if (TICKERS.some(x => x[0] === code)) {
     const h = lsGetJson(HIDDEN_TICKERS_KEY, []);
     if (h.indexOf(code) < 0) h.push(code);
     lsSetJson(HIDDEN_TICKERS_KEY, h);
   }
-  lsSetJson(FAV_TICKERS_KEY, getFavs().filter(c => c !== code));
-  stepFavs = stepFavs.filter(c => c !== code);
+  lsSetJson(RECENT_TICKERS_KEY, lsGetJson(RECENT_TICKERS_KEY, []).filter(c => c !== code));
+  lsSetJson(FAV_TICKERS_KEY, getFavorites().filter(c => c !== code));
   askedAddTickers.add(code);
   rebuildTickerSelect();
 }
-// ★ 起動時の銘柄：お気に入りの先頭 → お気に入りがなければ名前順の先頭
+// ★ 起動時の銘柄：前回最後に見た銘柄 → なければお気に入り・五十音順の先頭（起動時は自動で読み込む）
 (function () {
-  const first = stepOrder()[0];
+  const first = lsGetJson(RECENT_TICKERS_KEY, [])[0] || stepOrder()[0];
   const inp = document.getElementById('ticker-input');
   if (first && inp) inp.value = first;
 })();
@@ -1565,6 +1580,8 @@ async function fetchData() {
   const ticker = document.getElementById('ticker-input').value.trim();
   const status = document.getElementById('status-display');
   if (!ticker) return;
+  lastFetchAt = Date.now();
+  lastLoadedCode = ticker.toUpperCase();
   if (!GAS_URL || GAS_URL.indexOf('https://') !== 0) {
     status.innerText = "エラー: GASのURLが未設定です";
     return;
@@ -2204,8 +2221,6 @@ function deleteAllSaves() {
 // ★ 起動時：記憶したMAを反映 → セーブ一覧を表示
 loadMAPrefs();
 updateSaveList();
-// ★ 起動時：表示中の銘柄を自動で読み込む（更新ボタンの代わり）
-fetchData();
 </script>
 </body>
 </html>
