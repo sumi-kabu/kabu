@@ -120,7 +120,7 @@ body.mobile #ma-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: clamp(2px, 1.5vw, 8px);
   background: #fff;
   border-bottom: 1px solid #ccc;
   padding: 3px 6px;
@@ -128,6 +128,10 @@ body.mobile #ma-bar {
 }
 body.mobile #ma-bar button { padding: 3px 0 !important; }
 body.mobile #ma-bar input { padding: 3px 2px !important; }
+@media (max-width: 360px) {
+  body.mobile #ma-bar div button { flex: 0 0 25px !important; width: 25px !important; }
+  body.mobile #ma-bar input { width: 36px !important; }
+}
 body.mobile #tf-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: #fff; border-bottom: 1px solid #ccc; }
 body.mobile #tf-bar #btn-daily,
 body.mobile #tf-bar #btn-weekly,
@@ -305,6 +309,7 @@ body.mobile .ticker-results div { padding: 8px 6px; font-size: 0.85em; }
       <button id="btn-hline-off" onclick="setHlineMode(false)"
               style="flex:none; padding:2px 6px; font-size:0.75em; background:#757575; color:white; border:none; border-radius:3px;">全消去</button>
       <span id="hline-status" style="font-size:0.72em; color:#888; white-space:nowrap;">OFF</span>
+      <button class="btn-nav" style="flex:none; margin-left:auto; padding:3px 8px; font-size:0.7em;" onclick="openReport()" title="トレード成績（勝率・PF・分析）">📊 成績</button>
     </div>
   </div>
 
@@ -419,6 +424,7 @@ body.mobile .ticker-results div { padding: 8px 6px; font-size: 0.85em; }
       <input type="number" id="ma-mid-val" value="8" style="width:46px; box-sizing:border-box; text-align:center; border:1px solid #ccc; font-size:1em; padding:5px 2px;" onchange="saveMAPrefs(); updateAllMA()">
       <button onclick="adjustMidMA(1)" style="flex:0 0 30px; width:30px; padding:6px 0; box-sizing:border-box; background:#eee;">＋</button>
     </div>
+    <button class="btn-nav" style="flex:0 0 36px; width:36px; min-height:30px; margin:0;" onclick="openReport()" title="トレード成績（勝率・PF・分析）" aria-label="トレード成績">📊</button>
   </div>
 
   <!-- 足種切替 + 水平線（全幅固定バー・1段） -->
@@ -502,11 +508,11 @@ body.mobile .ticker-results div { padding: 8px 6px; font-size: 0.85em; }
 
     <!-- 5. 損益（2行コンパクト版） -->
     <div class="section">
-  <div style="display:flex; align-items:center; gap:6px;">
+  <div style="display:flex; align-items:center; gap:3px;">
     <span style="font-size:0.7em; color:#666; font-weight:bold; white-space:nowrap;">累計</span>
     <div id="total-profit" class="stat-val"
          style="font-size:0.80em; text-align:left; flex:1 1 0; min-width:0; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:red;">0 円</div>
-    <button class="btn-reset" style="flex:none; padding:4px 8px; font-size:0.7em; width:auto; margin:0;" onclick="resetProfit()">リセット</button>
+    <button class="btn-reset" style="flex:none; padding:4px 4px; font-size:0.7em; width:auto; margin:0;" onclick="resetProfit()">リセット</button>
   </div>
   <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
     <div id="unrealized-profit" style="font-size:0.80em;">含み: 0 円</div>
@@ -1240,6 +1246,7 @@ _hlineOverlay.addEventListener('click', function(e) {
   const y = getChartYFromClick(e);
   if (y === null) return;
   hlines.push({ y: y });
+  if (typeof jrCapturePlan === 'function') jrCapturePlan();
   drawChart();
 });
 } else {
@@ -1326,6 +1333,7 @@ function onPointerUp(e) {
     const y = pixelToDataY(getEventClientY(e));
     if (y !== null) {
       hlines.push({ y: Math.round(y) });
+      if (typeof jrCapturePlan === 'function') jrCapturePlan();
       hideHlineGuide();
       drawChart();
     }
@@ -1562,6 +1570,7 @@ function applyDailyData(newData, keepPosition) {
   weeklyData  = aggregateData('weekly');
   monthlyData = aggregateData('monthly');
   if (!keepPosition) {
+    if (typeof jrCur !== 'undefined') jrCur = null;
     tradeHistory = [];
     document.getElementById('log-area').innerHTML = "";
   }
@@ -1862,7 +1871,9 @@ function goToEntryDay() {
 function addPosition(type) {
   if (dailyData.length === 0) return;
   const price = dailyData[currentDailyIndex].close;
+  if (typeof jrBeforeAdd === 'function') jrBeforeAdd(type, price);   // ★ 成績の記録
   positions[type].push({ price: price, qty: 100 });
+  if (typeof jrAfterChange === 'function') jrAfterChange();
   recordTradeHistory();
   addLog(`${type === 'long' ? '買' : '売'}追加: ${price}円`, type === 'long' ? 'red' : 'blue');
   updateDisplay();
@@ -1871,9 +1882,11 @@ function addPosition(type) {
 function closeOne(type) {
   if (positions[type].length === 0) return;
   const currentPrice = dailyData[currentDailyIndex].close;
+  if (typeof jrBeforeClose === 'function') jrBeforeClose();   // ★ 成績の記録
   const p = positions[type].shift();
   let profit = (type === 'long') ? (currentPrice - p.price) * p.qty : (p.price - currentPrice) * p.qty;
   totalProfit += profit;
+  if (typeof jrAfterClose === 'function') jrAfterClose(profit);
   recordTradeHistory();
   document.getElementById('last-profit').innerText = (IS_MOBILE ? "確定: " + profit.toLocaleString() + "円" : "確定損益: " + profit.toLocaleString() + " 円");
   document.getElementById('last-profit').style.color = profit >= 0 ? "red" : "blue";
@@ -1884,11 +1897,13 @@ function closeOne(type) {
 function closeAll() {
   if (positions.long.length === 0 && positions.short.length === 0) return;
   const currentPrice = dailyData[currentDailyIndex].close;
+  if (typeof jrBeforeClose === 'function') jrBeforeClose();   // ★ 成績の記録
   let profit = 0;
   positions.long.forEach(p  => profit += (currentPrice - p.price) * p.qty);
   positions.short.forEach(p => profit += (p.price - currentPrice) * p.qty);
   totalProfit += profit;
   positions = { long: [], short: [] };
+  if (typeof jrAfterClose === 'function') jrAfterClose(profit);
   recordTradeHistory();
   document.getElementById('last-profit').innerText = (IS_MOBILE ? "一括: " + profit.toLocaleString() + "円" : "一括決済: " + profit.toLocaleString() + " 円");
   document.getElementById('last-profit').style.color = profit >= 0 ? "red" : "blue";
@@ -1950,6 +1965,7 @@ function updateDisplay() {
     entryBtn.style.cursor = 'pointer';
   }
 
+  if (typeof jrTrack === 'function') jrTrack();   // ★ 成績の記録（最大含み損益など）
   drawChart();
 }
 
@@ -2234,6 +2250,7 @@ function quickLoad() {
   positions = s.pos || { long: [], short: [] };
   totalProfit = s.profit || 0;
   hlines = s.lines || [];
+  if (typeof jrCur !== 'undefined') jrCur = null;
 
   updateAllMA();
   updateDisplay();
@@ -2262,6 +2279,461 @@ loadMAPrefs();
 updateSaveList();
 // ★ 起動時：更新ボタンを押さなくてもチャートを表示する
 fetchData();
+</script>
+<script>
+// =====================================================================
+// ★ トレード成績（取引ごとの記録・集計・分析）
+//   取引1回 ＝ 建玉ゼロ → エントリー → 建玉ゼロに戻るまで
+//   記録は端末ごとに保存（セーブデータとは別）
+// =====================================================================
+const JR_KEY = 'tradeToolJournal_v1';
+let jrCur = null;   // 保有中の取引
+
+function jrLoad() { try { return JSON.parse(localStorage.getItem(JR_KEY) || '[]') || []; } catch (e) { return []; } }
+function jrSave(a) { try { localStorage.setItem(JR_KEY, JSON.stringify(a)); } catch (e) { alert('成績の保存に失敗しました: ' + e.message); } }
+function jrFlat() { return !positions.long.length && !positions.short.length; }
+function jrAvg(arr) { return arr.reduce((s, p) => s + p.price * p.qty, 0) / arr.reduce((s, p) => s + p.qty, 0); }
+
+// エントリー時のMAの状態（理由の代わりに自動で分類）
+function jrCtx(idx, side) {
+  const d = dailyData[idx], p = dailyData[idx - 1];
+  if (!d || d.maShort == null || d.ma13 == null) return {};
+  const dir = side === 'long' ? 1 : -1;
+  const dev = Math.abs(d.close / d.maShort - 1) * 100;
+  return {
+    trend: (d.maShort - d.ma13) * dir > 0 ? '順張り' : '逆張り',
+    slope: (p && p.maShort != null) ? ((d.maShort - p.maShort) * dir > 0 ? '順方向' : '逆方向') : null,
+    dev: dev <= 2 ? '2%以内' : dev <= 5 ? '2〜5%' : '5%超'
+  };
+}
+function jrNew(side, price, entryIdx) {
+  const code = document.getElementById('ticker-input').value.trim();
+  const t = findTicker(code, true);
+  const msEl = document.getElementById('ma-short-val'), mmEl = document.getElementById('ma-mid-val');
+  jrCur = {
+    code: code, name: t ? t.name : '', side: side,
+    entryIdx: entryIdx, entryDate: dailyData[entryIdx].date, entryPrice: price,
+    maS: parseInt(msEl && msEl.value) || DEFAULT_MA_SHORT, maM: parseInt(mmEl && mmEl.value) || DEFAULT_MA_MID,
+    tf: timeframe === 'weekly' ? '週足' : timeframe === 'monthly' ? '月足' : '日足',
+    ctx: jrCtx(entryIdx, side),
+    realized: 0, maxLong: 0, maxShort: 0, hedged: false, pyramid: 0, nanpin: 0, hedgeAdd: 0,
+    balance: null, stop: null, target: null, stopHitIdx: null, targetHitIdx: null, mae: 0, mfe: 0
+  };
+  jrCapturePlan();
+}
+// 記録がないまま建玉がある（セーブ読込など）ときは、今の建玉から作る
+function jrEnsure() {
+  if (jrCur || jrFlat()) return;
+  const side = positions.long.length >= positions.short.length ? 'long' : 'short';
+  let idx = getEntryDayIndex();
+  if (idx < 0) idx = currentDailyIndex;
+  jrNew(side, positions[side][0].price, idx);
+}
+// 玉を追加する直前に呼ぶ
+function jrBeforeAdd(type, price) {
+  if (jrFlat()) { jrNew(type, price, currentDailyIndex); return; }
+  jrEnsure();
+  const same = positions[type], opp = positions[type === 'long' ? 'short' : 'long'];
+  if (same.length) {
+    const avg = jrAvg(same);
+    if (price !== avg) { if ((type === 'long') === (price > avg)) jrCur.pyramid++; else jrCur.nanpin++; }
+  } else if (opp.length) jrCur.hedgeAdd++;
+}
+// 建玉が変わった後に呼ぶ
+function jrAfterChange() {
+  if (!jrCur) return;
+  jrCur.maxLong = Math.max(jrCur.maxLong, positions.long.length);
+  jrCur.maxShort = Math.max(jrCur.maxShort, positions.short.length);
+  if (positions.long.length && positions.short.length) jrCur.hedged = true;
+}
+function jrBalance(l, s) { return s === 0 ? '買いのみ' : l === 0 ? '売りのみ' : l > s ? '買い多め' : s > l ? '売り多め' : '同数'; }
+// 決済の直前に呼ぶ（最初の決済のときの建玉を覚える）
+function jrBeforeClose() {
+  jrEnsure();
+  if (jrCur && !jrCur.balance) jrCur.balance = jrBalance(positions.long.length, positions.short.length);
+}
+// 決済の後に呼ぶ（建玉ゼロなら記録する）
+function jrAfterClose(profit) {
+  if (!jrCur) return;
+  jrCur.realized += profit;
+  if (!jrFlat()) { jrAfterChange(); return; }
+  const c = jrCur, pnl = c.realized, exitIdx = currentDailyIndex;
+  c.mae = Math.min(c.mae, pnl); c.mfe = Math.max(c.mfe, pnl);
+  const risk = c.stop != null ? Math.abs(c.entryPrice - c.stop) * 100 : null;
+  const pyr = c.pyramid > 0, nan = c.nanpin > 0;
+  const rec = {
+    id: Date.now() + '_' + Math.random().toString(36).slice(2, 6), closedAt: Date.now(),
+    code: c.code, name: c.name, side: c.side, entryDate: c.entryDate, exitDate: dailyData[exitIdx].date,
+    days: Math.max(1, exitIdx - c.entryIdx + 1), pnl: pnl, entryPrice: c.entryPrice,
+    maS: c.maS, maM: c.maM, tf: c.tf, ctx: c.ctx,
+    maxLong: c.maxLong, maxShort: c.maxShort, hedged: c.hedged, balance: c.balance,
+    adds: pyr && nan ? '増し玉＋ナンピン' : pyr ? '増し玉あり' : nan ? 'ナンピンあり' : '追加なし',
+    stop: c.stop, target: c.target, risk: risk, r: risk ? pnl / risk : null,
+    planRR: (c.stop != null && c.target != null) ? Math.abs(c.target - c.entryPrice) / Math.abs(c.entryPrice - c.stop) : null,
+    stopHit: c.stopHitIdx != null, stopLate: c.stopHitIdx != null ? exitIdx > c.stopHitIdx : null,
+    targetHit: c.target != null ? c.targetHitIdx != null : null,
+    mae: c.mae, mfe: c.mfe
+  };
+  const all = jrLoad(); all.push(rec); jrSave(all);
+  jrCur = null;
+}
+// 水平線から損切り・利確の計画を読み取る（エントリー価格のすぐ下・すぐ上の線）
+function jrCapturePlan() {
+  if (!jrCur || !hlines.length) return;
+  const ep = jrCur.entryPrice, ys = hlines.map(h => h.y);
+  const below = ys.filter(y => y < ep), above = ys.filter(y => y > ep);
+  const b = below.length ? Math.max.apply(null, below) : null, a = above.length ? Math.min.apply(null, above) : null;
+  const stop = jrCur.side === 'long' ? b : a, target = jrCur.side === 'long' ? a : b;
+  if (jrCur.stop == null && stop != null) jrCur.stop = stop;
+  if (jrCur.target == null && target != null) jrCur.target = target;
+}
+// 表示更新のたびに呼ぶ：最大含み損益と、損切り・利確ラインへの到達を記録
+function jrTrack() {
+  if (jrFlat() || !dailyData.length) return;
+  jrEnsure();
+  const c = jrCur, i = currentDailyIndex, px = dailyData[i].close;
+  if (i < c.entryIdx) return;
+  let un = 0;
+  positions.long.forEach(p => un += (px - p.price) * p.qty);
+  positions.short.forEach(p => un += (p.price - px) * p.qty);
+  const tot = c.realized + un;
+  c.mae = Math.min(c.mae, tot); c.mfe = Math.max(c.mfe, tot);
+  const L = c.side === 'long';
+  if (c.stop != null && (L ? px <= c.stop : px >= c.stop) && (c.stopHitIdx == null || i < c.stopHitIdx)) c.stopHitIdx = i;
+  if (c.target != null && (L ? px >= c.target : px <= c.target) && (c.targetHitIdx == null || i < c.targetHitIdx)) c.targetHitIdx = i;
+}
+
+// ---------------- 集計 ----------------
+function jrStats(ts) {
+  const n = ts.length;
+  const wins = ts.filter(t => t.pnl > 0), losses = ts.filter(t => t.pnl < 0);
+  const gp = wins.reduce((s, t) => s + t.pnl, 0), gl = -losses.reduce((s, t) => s + t.pnl, 0);
+  const total = gp - gl;
+  const avgW = wins.length ? gp / wins.length : null, avgL = losses.length ? gl / losses.length : null;
+  let cw = 0, cl = 0, mcw = 0, mcl = 0, eq = 0, peak = 0, dd = 0;
+  ts.forEach(t => {
+    if (t.pnl > 0) { cw++; cl = 0; } else if (t.pnl < 0) { cl++; cw = 0; } else { cw = 0; cl = 0; }
+    mcw = Math.max(mcw, cw); mcl = Math.max(mcl, cl);
+    eq += t.pnl; peak = Math.max(peak, eq); dd = Math.max(dd, peak - eq);
+  });
+  const avg = (a, f) => a.length ? a.reduce((s, t) => s + f(t), 0) / a.length : null;
+  const maxLoss = losses.length ? Math.min.apply(null, losses.map(t => t.pnl)) : null;
+  const top3 = losses.map(t => -t.pnl).sort((a, b) => b - a).slice(0, 3).reduce((s, v) => s + v, 0);
+  const capW = wins.filter(t => t.mfe > 0);
+  const withR = ts.filter(t => t.r != null), withRR = ts.filter(t => t.planRR != null);
+  const hit = ts.filter(t => t.stopHit), withT = ts.filter(t => t.targetHit != null);
+  return {
+    n: n, wins: wins.length, losses: losses.length, winRate: n ? wins.length / n * 100 : null,
+    gp: gp, gl: gl, total: total, pf: gl > 0 ? gp / gl : (gp > 0 ? Infinity : null),
+    avgW: avgW, avgL: avgL, payoff: (avgW != null && avgL) ? avgW / avgL : null, exp: n ? total / n : null,
+    maxWin: wins.length ? Math.max.apply(null, wins.map(t => t.pnl)) : null, maxLoss: maxLoss,
+    mcw: mcw, mcl: mcl, maxDD: dd,
+    daysW: avg(wins, t => t.days), daysL: avg(losses, t => t.days),
+    dokan: (maxLoss != null && avgW) ? -maxLoss / avgW : null,
+    top3: gl > 0 && losses.length > 3 ? top3 / gl * 100 : null,
+    capture: capW.length ? avg(capW, t => t.pnl / t.mfe) * 100 : null,
+    planN: withR.length, avgR: avg(withR, t => t.r), avgPlanRR: avg(withRR, t => t.planRR),
+    stopHitN: hit.length, stopLateN: hit.filter(t => t.stopLate).length,
+    targetN: withT.length, targetHitN: withT.filter(t => t.targetHit).length,
+    lossOver: withR.filter(t => t.r < -1.2).length, lossN: withR.filter(t => t.r < 0).length
+  };
+}
+const JR_DAY_BUCKETS = [[1, 2, '1〜2日'], [3, 5, '3〜5日'], [6, 10, '6〜10日'], [11, 20, '11〜20日'], [21, 1e9, '21日以上']];
+function jrDayBucket(d) { for (const b of JR_DAY_BUCKETS) if (d >= b[0] && d <= b[1]) return b[2]; return ''; }
+function jrMaLabel(t) { return '短期' + t.maS + '・中期' + t.maM; }
+// 分析の切り口
+const JR_DIMS = [
+  { title: '最初のエントリー方向', f: t => t.side === 'long' ? '買いから' : '売りから', order: ['買いから', '売りから'] },
+  { title: '建玉の持ち方', f: t => t.hedged ? '両建てあり' : '片玉のみ', order: ['片玉のみ', '両建てあり'] },
+  { title: '決済を始めたときの建玉', f: t => t.balance, order: ['買いのみ', '売りのみ', '買い多め', '売り多め', '同数'] },
+  { title: '玉の追加（同じ方向）', f: t => t.adds, order: ['追加なし', '増し玉あり', 'ナンピンあり', '増し玉＋ナンピン'], note: '増し玉＝有利な価格で追加、ナンピン＝不利な価格で追加' },
+  { title: '保有日数', f: t => jrDayBucket(t.days), order: JR_DAY_BUCKETS.map(b => b[2]) },
+  { title: 'MAの並び（エントリー時）', f: t => t.ctx && t.ctx.trend, order: ['順張り', '逆張り'], note: '順張り＝短期MAと中期MAの並びと同じ方向にエントリー' },
+  { title: '短期MAの向き（エントリー時）', f: t => t.ctx && t.ctx.slope, order: ['順方向', '逆方向'], note: '順方向＝エントリー方向に短期MAが向いている' },
+  { title: '株価と短期MAの離れ具合（エントリー時）', f: t => t.ctx && t.ctx.dev, order: ['2%以内', '2〜5%', '5%超'] },
+  { title: 'MA設定', f: jrMaLabel },
+  { title: 'エントリー時の足', f: t => t.tf, order: ['日足', '週足', '月足'] },
+  { title: '損切りラインの計画', f: t => t.stop != null ? '損切り線あり' : '損切り線なし', order: ['損切り線あり', '損切り線なし'] },
+  { title: '損切りラインに達したとき', f: t => t.stopHit ? (t.stopLate ? '持ち越した' : 'その日に決済') : null, order: ['その日に決済', '持ち越した'] },
+  { title: '銘柄', f: t => t.code + ' ' + (t.name || '') }
+];
+function jrGroup(ts, dim) {
+  const g = {};
+  ts.forEach(t => { const k = dim.f(t); if (k) (g[k] = g[k] || []).push(t); });
+  let keys = Object.keys(g);
+  if (dim.order) keys = dim.order.filter(k => g[k]).concat(keys.filter(k => dim.order.indexOf(k) < 0));
+  else keys.sort((a, b) => g[b].length - g[a].length);
+  return keys.map(k => ({ key: k, ts: g[k], s: jrStats(g[k]) }));
+}
+// 気づき（自動コメント）
+function jrInsights(ts, s) {
+  const out = [];
+  const pct = v => v.toFixed(0) + '%';
+  if (s.n < 10) out.push(['gray', '取引が' + s.n + '回なので、結果は参考程度です（30回以上で傾向が見えてきます）']);
+  if (s.winRate != null) {
+    if (s.winRate > 70) out.push(['orange', '勝率 ' + pct(s.winRate) + ' は目標（60〜70%）より高めです。損切りが遅れて、負けが大きくなっていないか確認しましょう']);
+    else if (s.winRate >= 60) out.push(['green', '勝率 ' + pct(s.winRate) + ' は目標ゾーン（60〜70%）に入っています']);
+    else out.push(['orange', '勝率 ' + pct(s.winRate) + ' は目標（60〜70%）より低めです']);
+  }
+  if (s.winRate > 0 && s.winRate < 100 && s.payoff != null) {
+    const w = s.winRate / 100, need = (1 - w) / w;
+    out.push([s.payoff >= need ? 'green' : 'red', 'この勝率でプラスにするには損益レシオ ' + need.toFixed(2) + ' 以上が必要 → 実績は ' + s.payoff.toFixed(2) + (s.payoff >= need ? '（クリア）' : '（不足）')]);
+  }
+  if (s.dokan != null && s.dokan >= 3) out.push(['red', '最大の負け（' + jrYen(s.maxLoss) + '）は、平均的な勝ち ' + s.dokan.toFixed(1) + '回分です（コツコツドカンの兆候）']);
+  if (s.top3 != null && s.top3 >= 50) out.push(['orange', '損失の大きい上位3回で、総損失の ' + pct(s.top3) + ' を占めています']);
+  if (s.daysW != null && s.daysL != null && s.daysL > s.daysW * 1.3) out.push(['orange', '負けの平均保有日数（' + s.daysL.toFixed(1) + '日）が勝ち（' + s.daysW.toFixed(1) + '日）より長く、損切りが遅れている可能性があります']);
+  if (s.stopHitN >= 3 && s.stopLateN / s.stopHitN >= 0.3) out.push(['red', '損切りラインに達した ' + s.stopHitN + '回のうち ' + s.stopLateN + '回は、その日に決済せず持ち越しています']);
+  if (s.capture != null && s.capture < 50) out.push(['orange', '勝ちトレードで確保できた利益は、最大含み益の平均 ' + pct(s.capture) + ' です。利確が遅く、含み益を減らしている可能性があります']);
+  // 保有日数で勝率が下がる境目
+  const days = Array.from(new Set(ts.map(t => t.days))).sort((a, b) => a - b);
+  let best = null;
+  days.forEach(d => {
+    const a = ts.filter(t => t.days <= d), b = ts.filter(t => t.days > d);
+    if (a.length < 5 || b.length < 5) return;
+    const wa = a.filter(t => t.pnl > 0).length / a.length * 100, wb = b.filter(t => t.pnl > 0).length / b.length * 100;
+    if (!best || wa - wb > best.diff) best = { d: d, diff: wa - wb, wa: wa, wb: wb, na: a.length, nb: b.length };
+  });
+  if (best && best.diff >= 15) out.push(['red', '保有 ' + best.d + '日を超えると勝率が下がります：' + best.d + '日以内 ' + pct(best.wa) + '（' + best.na + '回）→ 超え ' + pct(best.wb) + '（' + best.nb + '回）']);
+  // 切り口ごとの差
+  const diffs = [];
+  JR_DIMS.forEach(dim => {
+    if (dim.title === '保有日数' || dim.title === '銘柄') return;
+    const gs = jrGroup(ts, dim).filter(g => g.s.n >= 5);
+    if (gs.length < 2) return;
+    gs.sort((a, b) => b.s.winRate - a.s.winRate);
+    const hi = gs[0], lo = gs[gs.length - 1];
+    if (hi.s.winRate - lo.s.winRate >= 15) diffs.push([hi.s.winRate - lo.s.winRate, '【' + dim.title + '】' + hi.key + ' ' + pct(hi.s.winRate) + '（' + hi.s.n + '回）／' + lo.key + ' ' + pct(lo.s.winRate) + '（' + lo.s.n + '回）']);
+  });
+  diffs.sort((a, b) => b[0] - a[0]).slice(0, 4).forEach(d => out.push(['blue', '勝率の差：' + d[1]]));
+  return out;
+}
+
+// ---------------- 表示 ----------------
+function jrYen(v) { return v == null ? '-' : (v > 0 ? '+' : '') + Math.round(v).toLocaleString() + '円'; }
+function jrEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function jrPf(v) { return v == null ? '-' : v === Infinity ? '∞' : v.toFixed(2); }
+function jrWrColor(w) { return w == null ? '#222' : (w >= 60 && w <= 70) ? '#2e7d32' : (w >= 50 && w <= 80) ? '#ef6c00' : '#c62828'; }
+function jrPnlColor(v) { return v > 0 ? '#d32f2f' : v < 0 ? '#1565c0' : '#222'; }
+
+let jrTab = 'sum';
+function openReport() {
+  if (!document.getElementById('jr-style')) {
+    const st = document.createElement('style');
+    st.id = 'jr-style';
+    st.textContent = `
+#jr-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10001;display:flex;align-items:center;justify-content:center}
+#jr-ov .jr-box{background:#fff;width:min(96vw,1000px);height:92vh;border-radius:8px;display:flex;flex-direction:column;overflow:hidden;font-size:13px;color:#222;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+body.mobile #jr-ov .jr-box{width:100vw;height:100%;border-radius:0;font-size:14px;padding-top:env(safe-area-inset-top)}
+#jr-ov button{flex:none;width:auto;margin:0;cursor:pointer;font-weight:bold;border:1px solid #bbb;border-radius:4px;background:#fff;padding:5px 10px;font-size:inherit;color:#222}
+#jr-ov select{font-size:inherit;padding:3px;width:auto;margin:0;flex:none}
+body.mobile #jr-ov .jr-head select{flex:1;min-width:0}
+body.mobile #jr-ov td.jr-nm{max-width:9em;overflow:hidden;text-overflow:ellipsis}
+#jr-ov .jr-head{display:flex;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid #ddd;flex-wrap:wrap}
+#jr-ov .jr-head b{flex:1;font-size:1.1em;white-space:nowrap}
+#jr-ov .jr-tabs{display:flex;border-bottom:1px solid #ddd}
+#jr-ov .jr-tabs button{flex:1;border:none;border-radius:0;background:#f3f3f3;border-bottom:3px solid transparent;padding:9px 0}
+#jr-ov .jr-tabs button.on{background:#fff;border-bottom-color:#2196f3;color:#1565c0}
+#jr-ov .jr-body{flex:1;overflow:auto;padding:10px;-webkit-overflow-scrolling:touch}
+#jr-ov .jr-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
+body.mobile #jr-ov .jr-kpis{grid-template-columns:repeat(2,1fr)}
+#jr-ov .jr-kpi{border:1px solid #e0e0e0;border-radius:6px;padding:6px 8px}
+#jr-ov .jr-kpi .l{font-size:.8em;color:#666}
+#jr-ov .jr-kpi .v{font-size:1.4em;font-weight:bold}
+#jr-ov .jr-kpi .s{font-size:.75em;color:#888}
+#jr-ov .jr-card{border:1px solid #e0e0e0;border-radius:6px;padding:8px;margin-top:8px}
+#jr-ov .jr-card h4{margin:0 0 6px;font-size:1em}
+#jr-ov .jr-note{font-size:.8em;color:#888;margin:-2px 0 4px}
+#jr-ov .jr-x{overflow-x:auto}
+#jr-ov table{border-collapse:collapse;width:100%;font-size:.92em}
+#jr-ov th,#jr-ov td{border-bottom:1px solid #eee;padding:4px 6px;text-align:right;white-space:nowrap}
+#jr-ov th{background:#fafafa;color:#555;font-weight:bold}
+#jr-ov th:first-child,#jr-ov td:first-child{text-align:left}
+#jr-ov td:first-child{white-space:normal}
+#jr-ov tr.few td{color:#aaa !important}
+#jr-ov ul.jr-ins{margin:0;padding-left:18px}
+#jr-ov ul.jr-ins li{margin:4px 0}
+#jr-ov .jr-grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+body.mobile #jr-ov .jr-grid2{grid-template-columns:1fr}
+#jr-ov .jr-plot{width:100%;height:280px}
+#jr-ov .jr-del{padding:1px 6px;color:#c62828;border-color:#e0a0a0}
+`;
+    document.head.appendChild(st);
+  }
+  closeReport();
+  const ov = document.createElement('div');
+  ov.id = 'jr-ov';
+  ov.innerHTML = `<div class="jr-box">
+    <div class="jr-head"><b>📊 トレード成績</b>
+      <select id="jr-range" onchange="renderReport()"><option value="0">全期間</option><option value="20">直近20回</option><option value="50">直近50回</option><option value="100">直近100回</option></select>
+      <select id="jr-ma" onchange="renderReport()"></select>
+      <button onclick="closeReport()">× 閉じる</button></div>
+    <div class="jr-tabs">
+      <button data-t="sum" onclick="jrSetTab('sum')">サマリー</button>
+      <button data-t="ana" onclick="jrSetTab('ana')">分析</button>
+      <button data-t="gra" onclick="jrSetTab('gra')">グラフ</button>
+      <button data-t="lst" onclick="jrSetTab('lst')">取引一覧</button></div>
+    <div class="jr-body" id="jr-body"></div></div>`;
+  ov.addEventListener('click', e => { if (e.target === ov) closeReport(); });
+  document.body.appendChild(ov);
+  const mas = Array.from(new Set(jrLoad().map(jrMaLabel)));
+  const sel = document.getElementById('jr-ma');
+  sel.add(new Option('MA設定：すべて', ''));
+  mas.forEach(m => sel.add(new Option(m, m)));
+  renderReport();
+}
+function closeReport() { const o = document.getElementById('jr-ov'); if (o) o.remove(); }
+function jrSetTab(t) { jrTab = t; renderReport(); }
+function jrFiltered() {
+  let ts = jrLoad().sort((a, b) => a.closedAt - b.closedAt);
+  const ma = document.getElementById('jr-ma').value, n = parseInt(document.getElementById('jr-range').value) || 0;
+  if (ma) ts = ts.filter(t => jrMaLabel(t) === ma);
+  if (n) ts = ts.slice(-n);
+  return ts;
+}
+function renderReport() {
+  const body = document.getElementById('jr-body');
+  if (!body) return;
+  document.querySelectorAll('#jr-ov .jr-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === jrTab));
+  const ts = jrFiltered();
+  if (!ts.length) {
+    body.innerHTML = '<div class="jr-card">まだ取引の記録がありません。<br>建玉ゼロからエントリーして、すべて決済すると1回として記録されます。<br><br>' +
+      '<b>計画との比較を使うには：</b>エントリーするときに、水平線で損切りと利確の位置を引いておいてください。エントリー価格のすぐ下・すぐ上の線を、損切り・利確の計画として読み取ります（売りの場合は逆）。</div>';
+    return;
+  }
+  const s = jrStats(ts);
+  if (jrTab === 'sum') jrRenderSum(body, ts, s);
+  else if (jrTab === 'ana') jrRenderAna(body, ts);
+  else if (jrTab === 'gra') jrRenderGra(body, ts);
+  else jrRenderList(body, ts);
+}
+function jrKpi(l, v, sub, color) {
+  return `<div class="jr-kpi"><div class="l">${l}</div><div class="v" style="color:${color || '#222'}">${v}</div><div class="s">${sub || '&nbsp;'}</div></div>`;
+}
+function jrRow(label, val) { return `<tr><td>${label}</td><td>${val}</td></tr>`; }
+function jrRenderSum(body, ts, s) {
+  const pct = v => v == null ? '-' : v.toFixed(0) + '%';
+  const ins = jrInsights(ts, s);
+  const colors = { green: '#2e7d32', orange: '#ef6c00', red: '#c62828', blue: '#1565c0', gray: '#888' };
+  let h = '<div class="jr-kpis">' +
+    jrKpi('勝率', pct(s.winRate), s.wins + '勝 ' + s.losses + '敗（目標60〜70%）', jrWrColor(s.winRate)) +
+    jrKpi('PF（総利益÷総損失）', jrPf(s.pf), s.pf != null && s.pf !== Infinity ? (s.pf >= 1.5 ? '良好' : s.pf >= 1 ? 'プラス' : 'マイナス') : '', s.pf != null && s.pf < 1 ? '#c62828' : '#222') +
+    jrKpi('損益レシオ（実績）', s.payoff == null ? '-' : s.payoff.toFixed(2), '平均利益÷平均損失') +
+    jrKpi('期待値（1回あたり）', jrYen(s.exp), '', jrPnlColor(s.exp)) +
+    jrKpi('累計損益', jrYen(s.total), s.n + '回', jrPnlColor(s.total)) +
+    jrKpi('最大ドローダウン', s.maxDD ? '-' + Math.round(s.maxDD).toLocaleString() + '円' : '0円', '累計損益の最高値からの下落', '#1565c0') +
+    '</div>';
+  h += '<div class="jr-card"><h4>💡 気づき</h4><ul class="jr-ins">' + ins.map(i => `<li style="color:${colors[i[0]]}">${jrEsc(i[1])}</li>`).join('') + '</ul></div>';
+  h += '<div class="jr-grid2"><div class="jr-card"><h4>コツコツドカン チェック</h4><table>' +
+    jrRow('平均利益／平均損失', jrYen(s.avgW) + ' ／ ' + (s.avgL ? '-' + Math.round(s.avgL).toLocaleString() + '円' : '-')) +
+    jrRow('最大利益／最大損失', jrYen(s.maxWin) + ' ／ ' + jrYen(s.maxLoss)) +
+    jrRow('最大損失は平均的な勝ちの', s.dokan == null ? '-' : `<b style="color:${s.dokan >= 3 ? '#c62828' : '#222'}">${s.dokan.toFixed(1)}回分</b>`) +
+    jrRow('損失上位3回が総損失に占める割合', pct(s.top3)) +
+    jrRow('最大連勝／最大連敗', s.mcw + '回 ／ ' + s.mcl + '回') +
+    jrRow('平均保有日数（勝ち／負け）', (s.daysW == null ? '-' : s.daysW.toFixed(1) + '日') + ' ／ ' + (s.daysL == null ? '-' : s.daysL.toFixed(1) + '日')) +
+    jrRow('勝ちで確保した利益（最大含み益に対して）', pct(s.capture)) +
+    '</table></div>';
+  h += '<div class="jr-card"><h4>計画との比較</h4>' + (s.planN ? '<table>' +
+    jrRow('損切り線を引いていた取引', s.planN + '回 ／ ' + s.n + '回') +
+    jrRow('計画の損益レシオ（平均）', s.avgPlanRR == null ? '-' : s.avgPlanRR.toFixed(2)) +
+    jrRow('実績の損益レシオ', s.payoff == null ? '-' : s.payoff.toFixed(2)) +
+    jrRow('平均R（損益÷計画の損切り額）', s.avgR == null ? '-' : s.avgR.toFixed(2) + 'R') +
+    jrRow('損切り幅を超えて負けた（-1.2R以下）', s.lossOver + '回 ／ 負け' + s.lossN + '回') +
+    jrRow('損切りラインに達して持ち越した', s.stopLateN + '回 ／ ' + s.stopHitN + '回') +
+    jrRow('利確ラインに達した', s.targetHitN + '回 ／ ' + s.targetN + '回') +
+    '</table><div class="jr-note" style="margin-top:4px">1R＝最初の100株を損切り線で切ったときの損失額</div>'
+    : '<div class="jr-note">損切り線のある取引がまだありません。エントリー時に水平線で損切り・利確の位置を引いておくと、計画と結果を比べられます（エントリー価格のすぐ下・すぐ上の線を読み取ります。売りは逆）。</div>') + '</div></div>';
+  h += '<div class="jr-card"><h4>勝率と損益レシオ（曲線より上ならプラス）</h4><div id="jr-p-be" class="jr-plot" style="height:300px"></div></div>';
+  body.innerHTML = h;
+  // 損益分岐の曲線
+  const xs = [], ys = [];
+  for (let w = 20; w <= 95; w++) { xs.push(w); ys.push((100 - w) / w); }
+  const data = [{ x: xs, y: ys, mode: 'lines', name: '損益ゼロのライン', line: { color: '#999', dash: 'dot' }, hoverinfo: 'skip' }];
+  const mg = jrGroup(ts, JR_DIMS.find(d => d.title === 'MA設定')).filter(g => g.s.n >= 3 && g.s.payoff != null);
+  if (mg.length > 1) data.push({ x: mg.map(g => g.s.winRate), y: mg.map(g => g.s.payoff), mode: 'markers+text', text: mg.map(g => g.key), textposition: 'top center', textfont: { size: 10, color: '#666' }, marker: { size: 8, color: '#90a4ae' }, name: 'MA設定別' });
+  if (s.payoff != null) data.push({ x: [s.winRate], y: [s.payoff], mode: 'markers+text', text: ['現在'], textposition: 'top center', marker: { size: 14, color: '#e91e8c' }, name: '現在' });
+  Plotly.newPlot('jr-p-be', data, {
+    margin: { l: 45, r: 10, t: 10, b: 40 }, showlegend: false,
+    xaxis: { title: '勝率（%）', range: [20, 95] }, yaxis: { title: '損益レシオ', range: [0, 3] },
+    shapes: [{ type: 'rect', x0: 60, x1: 70, y0: 0, y1: 3, fillcolor: 'rgba(76,175,80,0.15)', line: { width: 0 } }],
+    annotations: [{ x: 65, y: 2.85, text: '目標ゾーン', showarrow: false, font: { color: '#2e7d32', size: 11 } }]
+  }, { displayModeBar: false, responsive: true });
+}
+function jrGroupTable(gs) {
+  const pct = v => v == null ? '-' : v.toFixed(0) + '%';
+  return '<div class="jr-x"><table><tr><th>区分</th><th>回数</th><th>勝率</th><th>PF</th><th>損益レシオ</th><th>平均損益</th><th>合計</th></tr>' +
+    gs.map(g => `<tr class="${g.s.n < 5 ? 'few' : ''}"><td>${jrEsc(g.key)}</td><td>${g.s.n}</td><td style="color:${jrWrColor(g.s.winRate)};font-weight:bold">${pct(g.s.winRate)}</td><td>${jrPf(g.s.pf)}</td><td>${g.s.payoff == null ? '-' : g.s.payoff.toFixed(2)}</td><td style="color:${jrPnlColor(g.s.exp)}">${jrYen(g.s.exp)}</td><td style="color:${jrPnlColor(g.s.total)}">${jrYen(g.s.total)}</td></tr>`).join('') +
+    '</table></div>';
+}
+function jrRenderAna(body, ts) {
+  let h = '<div class="jr-note">勝率の色：緑＝目標ゾーン（60〜70%）、オレンジ＝やや外れ、赤＝大きく外れ。グレーの行は5回未満で参考程度です。</div><div class="jr-grid2">';
+  JR_DIMS.forEach(dim => {
+    const gs = jrGroup(ts, dim);
+    if (!gs.length) return;
+    h += `<div class="jr-card"><h4>${dim.title}</h4>${dim.note ? '<div class="jr-note">' + dim.note + '</div>' : ''}${jrGroupTable(gs)}</div>`;
+  });
+  body.innerHTML = h + '</div>';
+}
+function jrRenderGra(body, ts) {
+  body.innerHTML = '<div class="jr-card"><h4>累計損益の推移</h4><div id="jr-p-eq" class="jr-plot"></div></div>' +
+    '<div class="jr-card"><h4>1回ごとの損益（大きな負けの棒に注意）</h4><div id="jr-p-bar" class="jr-plot"></div></div>' +
+    '<div class="jr-card"><h4>保有日数ごとの勝率</h4><div id="jr-p-days" class="jr-plot"></div></div>' +
+    (ts.some(t => t.r != null) ? '<div class="jr-card"><h4>R倍数（損益÷計画の損切り額）</h4><div class="jr-note">-1Rより下が多いと、損切りが計画より遅れています</div><div id="jr-p-r" class="jr-plot"></div></div>' : '');
+  const cfg = { displayModeBar: false, responsive: true };
+  const lay = (yt) => ({ margin: { l: 60, r: 10, t: 10, b: 35 }, showlegend: false, xaxis: { title: '取引（古い順）' }, yaxis: { title: yt, tickformat: ',d' } });
+  const no = ts.map((t, i) => i + 1);
+  const hov = ts.map(t => t.exitDate + ' ' + t.code + ' ' + (t.name || '') + '<br>' + (t.side === 'long' ? '買い' : '売り') + 'から・' + t.days + '日・' + jrYen(t.pnl));
+  let eq = 0;
+  Plotly.newPlot('jr-p-eq', [{ x: no, y: ts.map(t => eq += t.pnl), mode: 'lines+markers', line: { color: '#e91e8c' }, marker: { size: 5 }, text: hov, hovertemplate: '%{text}<br>累計 %{y:,}円<extra></extra>' }], lay('円'), cfg);
+  Plotly.newPlot('jr-p-bar', [{ x: no, y: ts.map(t => t.pnl), type: 'bar', marker: { color: ts.map(t => t.pnl >= 0 ? '#e57373' : '#64b5f6') }, text: hov, hovertemplate: '%{text}<extra></extra>', textposition: 'none' }], lay('円'), cfg);
+  const gs = jrGroup(ts, JR_DIMS.find(d => d.title === '保有日数'));
+  Plotly.newPlot('jr-p-days', [{ x: gs.map(g => g.key), y: gs.map(g => g.s.winRate), type: 'bar', text: gs.map(g => g.s.winRate.toFixed(0) + '%（' + g.s.n + '回）'), textposition: 'outside', marker: { color: gs.map(g => jrWrColor(g.s.winRate)) }, hoverinfo: 'skip' }],
+    { margin: { l: 45, r: 10, t: 10, b: 35 }, showlegend: false, yaxis: { title: '勝率（%）', range: [0, 110] },
+      shapes: [{ type: 'rect', xref: 'paper', x0: 0, x1: 1, y0: 60, y1: 70, fillcolor: 'rgba(76,175,80,0.15)', line: { width: 0 } }] }, cfg);
+  const rs = ts.filter(t => t.r != null);
+  if (rs.length) Plotly.newPlot('jr-p-r', [{ x: rs.map((t, i) => i + 1), y: rs.map(t => t.r), type: 'bar', marker: { color: rs.map(t => t.r >= 0 ? '#e57373' : t.r < -1.2 ? '#1565c0' : '#64b5f6') }, text: rs.map(t => t.exitDate + ' ' + t.code + '<br>' + t.r.toFixed(2) + 'R'), hovertemplate: '%{text}<extra></extra>', textposition: 'none' }],
+    { margin: { l: 45, r: 10, t: 10, b: 35 }, showlegend: false, yaxis: { title: 'R' }, xaxis: { title: '損切り線のある取引（古い順）' },
+      shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: -1, y1: -1, line: { color: '#c62828', dash: 'dot' } }] }, cfg);
+}
+let jrSort = 'new';
+function jrRenderList(body, ts) {
+  const sorters = { new: (a, b) => b.closedAt - a.closedAt, win: (a, b) => b.pnl - a.pnl, loss: (a, b) => a.pnl - b.pnl, days: (a, b) => b.days - a.days };
+  const list = ts.slice().sort(sorters[jrSort]);
+  const opt = (v, l) => `<option value="${v}"${jrSort === v ? ' selected' : ''}>${l}</option>`;
+  let h = '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
+    '<select onchange="jrSort=this.value;renderReport()">' + opt('new', '新しい順') + opt('win', '利益が大きい順') + opt('loss', '損失が大きい順') + opt('days', '保有日数が長い順') + '</select>' +
+    '<span style="flex:1"></span><button onclick="jrExportCsv()">CSV書き出し</button><button onclick="jrClearAll()" style="color:#c62828">全記録を削除</button></div>';
+  h += '<div class="jr-x"><table><tr><th>エントリー日</th><th>決済日</th><th>銘柄</th><th>方向</th><th>日数</th><th>損益</th><th>最大含み損</th><th>最大含み益</th><th>MA</th><th>建玉</th><th>計画RR</th><th>R</th><th>損切り</th><th></th></tr>' +
+    list.map(t => `<tr><td>${t.entryDate}</td><td>${t.exitDate}</td><td class="jr-nm">${jrEsc(t.code + ' ' + (t.name || ''))}</td><td>${t.side === 'long' ? '買い' : '売り'}</td><td>${t.days}</td>` +
+      `<td style="color:${jrPnlColor(t.pnl)};font-weight:bold">${jrYen(t.pnl)}</td><td style="color:#1565c0">${jrYen(t.mae)}</td><td style="color:#d32f2f">${jrYen(t.mfe)}</td>` +
+      `<td>${t.maS}・${t.maM}</td><td>${t.hedged ? '両建て' : '片玉'}（${jrEsc(t.balance || '')}）</td><td>${t.planRR == null ? '-' : t.planRR.toFixed(2)}</td><td>${t.r == null ? '-' : t.r.toFixed(2)}</td>` +
+      `<td>${t.stopHit ? (t.stopLate ? '<span style="color:#c62828">持ち越し</span>' : '守った') : '-'}</td><td><button class="jr-del" onclick="jrDelete('${t.id}')">削除</button></td></tr>`).join('') +
+    '</table></div>';
+  body.innerHTML = h;
+}
+function jrDelete(id) {
+  const t = jrLoad().find(x => x.id === id);
+  if (!t || !confirm(t.exitDate + ' ' + t.code + ' ' + jrYen(t.pnl) + ' の記録を削除しますか？')) return;
+  jrSave(jrLoad().filter(x => x.id !== id));
+  renderReport();
+}
+function jrClearAll() {
+  if (!confirm('トレード成績の記録をすべて削除しますか？（元に戻せません）')) return;
+  jrSave([]);
+  renderReport();
+}
+function jrExportCsv() {
+  const ts = jrFiltered();
+  const head = ['エントリー日', '決済日', 'コード', '銘柄', '方向', '保有日数', '損益', 'エントリー価格', '短期MA', '中期MA', '足', '両建て', '決済開始時の建玉', '玉の追加', 'MAの並び', '短期MAの向き', 'MA乖離', '損切り線', '利確線', '計画RR', 'R', '損切り到達', '損切り持ち越し', '利確到達', '最大含み損', '最大含み益'];
+  const yn = v => v == null ? '' : v ? 'はい' : 'いいえ';
+  const rows = ts.map(t => [t.entryDate, t.exitDate, t.code, t.name, t.side === 'long' ? '買い' : '売り', t.days, t.pnl, t.entryPrice, t.maS, t.maM, t.tf, yn(t.hedged), t.balance, t.adds,
+    t.ctx && t.ctx.trend, t.ctx && t.ctx.slope, t.ctx && t.ctx.dev, t.stop, t.target, t.planRR == null ? '' : t.planRR.toFixed(2), t.r == null ? '' : t.r.toFixed(2),
+    yn(t.stopHit), yn(t.stopLate), yn(t.targetHit), t.mae, t.mfe]);
+  const csv = '\ufeff' + [head].concat(rows).map(r => r.map(v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'トレード成績_' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
 </script>
 </body>
 </html>
