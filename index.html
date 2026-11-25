@@ -2366,7 +2366,7 @@ function jrAfterClose(profit) {
     code: c.code, name: c.name, side: c.side, entryDate: c.entryDate, exitDate: dailyData[exitIdx].date,
     days: Math.max(1, exitIdx - c.entryIdx + 1), pnl: pnl, entryPrice: c.entryPrice,
     maS: c.maS, maM: c.maM, tf: c.tf, ctx: c.ctx,
-    maxLong: c.maxLong, maxShort: c.maxShort, hedged: c.hedged, balance: c.balance,
+    maxLong: c.maxLong, maxShort: c.maxShort, pyramid: c.pyramid, nanpin: c.nanpin, hedgeAdd: c.hedgeAdd, hedged: c.hedged, balance: c.balance,
     adds: pyr && nan ? '増し玉＋ナンピン' : pyr ? '増し玉あり' : nan ? 'ナンピンあり' : '追加なし',
     stop: c.stop, target: c.target, risk: risk, r: risk ? pnl / risk : null,
     planRR: (c.stop != null && c.target != null) ? Math.abs(c.target - c.entryPrice) / Math.abs(c.entryPrice - c.stop) : null,
@@ -2723,11 +2723,11 @@ function jrClearAll() {
 }
 function jrExportCsv() {
   const ts = jrFiltered();
-  const head = ['エントリー日', '決済日', 'コード', '銘柄', '方向', '保有日数', '損益', 'エントリー価格', '短期MA', '中期MA', '足', '両建て', '決済開始時の建玉', '玉の追加', 'MAの並び', '短期MAの向き', 'MA乖離', '損切り線', '利確線', '計画RR', 'R', '損切り到達', '損切り持ち越し', '利確到達', '最大含み損', '最大含み益'];
+  const head = ['エントリー日', '決済日', 'コード', '銘柄', '方向', '保有日数', '損益', 'エントリー価格', '短期MA', '中期MA', '足', '両建て', '決済開始時の建玉', '玉の追加', 'MAの並び', '短期MAの向き', 'MA乖離', '損切り線', '利確線', '計画RR', 'R', '損切り到達', '損切り持ち越し', '利確到達', '最大含み損', '最大含み益', '最大買い玉数', '最大売り玉数', '増し玉回数', 'ナンピン回数', 'ヘッジ追加回数'];
   const yn = v => v == null ? '' : v ? 'はい' : 'いいえ';
   const rows = ts.map(t => [t.entryDate, t.exitDate, t.code, t.name, t.side === 'long' ? '買い' : '売り', t.days, t.pnl, t.entryPrice, t.maS, t.maM, t.tf, yn(t.hedged), t.balance, t.adds,
     t.ctx && t.ctx.trend, t.ctx && t.ctx.slope, t.ctx && t.ctx.dev, t.stop, t.target, t.planRR == null ? '' : t.planRR.toFixed(2), t.r == null ? '' : t.r.toFixed(2),
-    yn(t.stopHit), yn(t.stopLate), yn(t.targetHit), t.mae, t.mfe]);
+    yn(t.stopHit), yn(t.stopLate), yn(t.targetHit), t.mae, t.mfe, t.maxLong, t.maxShort, t.pyramid, t.nanpin, t.hedgeAdd]);
   const csv = '\ufeff' + [head].concat(rows).map(r => r.map(v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
